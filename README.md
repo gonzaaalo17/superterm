@@ -1,6 +1,13 @@
-# dotfiles
+```
+███████╗ ██╗   ██╗ ██████╗  ███████╗ ██████╗  ████████╗ ███████╗ ██████╗  ███╗   ███╗
+██╔════╝ ██║   ██║ ██╔══██╗ ██╔════╝ ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔══██╗ ████╗ ████║
+███████╗ ██║   ██║ ██████╔╝ █████╗   ██████╔╝    ██║    █████╗   ██████╔╝ ██╔████╔██║
+╚════██║ ██║   ██║ ██╔═══╝  ██╔══╝   ██╔══██╗    ██║    ██╔══╝   ██╔══██╗ ██║╚██╔╝██║
+███████║ ╚██████╔╝ ██║      ███████╗ ██║  ██║    ██║    ███████╗ ██║  ██║ ██║ ╚═╝ ██║
+╚══════╝  ╚═════╝  ╚═╝      ╚══════╝ ╚═╝  ╚═╝    ╚═╝    ╚══════╝ ╚═╝  ╚═╝ ╚═╝     ╚═╝
+```
 
-My terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
+**superterm** — my terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
 thefuck) + **tmux**, with lazygit, lazydocker, yazi, btop and a local-LLM `ai` command — all in
 Catppuccin, following GNOME's light/dark mode.
 
@@ -8,8 +15,8 @@ Catppuccin, following GNOME's light/dark mode.
 
 ```bash
 sudo dnf install -y gh git && gh auth login     # the repo is private
-gh repo clone gonzaaalo17/dotfiles ~/Projects/dotfiles
-cd ~/Projects/dotfiles
+gh repo clone gonzaaalo17/superterm ~/Projects/superterm
+cd ~/Projects/superterm
 ./install.sh
 ```
 
@@ -38,7 +45,7 @@ Optional extras, not automated:
 The files in `~/.config/…` are links into this repo, so editing a config edits the repo:
 
 ```bash
-cd ~/Projects/dotfiles
+cd ~/Projects/superterm
 git status            # see what changed
 git commit -am "…"    # save it
 git push
