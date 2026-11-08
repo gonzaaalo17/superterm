@@ -14,8 +14,8 @@ Catppuccin, following GNOME's light/dark mode.
 ## New machine
 
 ```bash
-sudo dnf install -y gh git && gh auth login     # the repo is private
-gh repo clone gonzaaalo17/superterm ~/Projects/superterm
+sudo dnf install -y git
+git clone https://github.com/gonzaaalo17/superterm.git ~/Projects/superterm
 cd ~/Projects/superterm
 ./install.sh
 ```
