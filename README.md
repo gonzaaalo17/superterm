@@ -7,7 +7,8 @@ Catppuccin, following GNOME's light/dark mode.
 ## New machine
 
 ```bash
-git clone git@github.com:gonzaaalo17/dotfiles.git ~/Projects/dotfiles
+sudo dnf install -y gh git && gh auth login     # the repo is private
+gh repo clone gonzaaalo17/dotfiles ~/Projects/dotfiles
 cd ~/Projects/dotfiles
 ./install.sh
 ```
