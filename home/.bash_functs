@@ -374,8 +374,14 @@ extract() {
 	esac
 }
 
-# cheat: terminal keybinding cheatsheet
+# cheat: terminal keybinding cheatsheet, plus this machine's own notes if present
+# (~/.config/ghostty/CHEATSHEET.local.md, kept out of the repo)
 cheat() {
-	local f=~/.config/ghostty/CHEATSHEET.md
-	if command -v glow >/dev/null; then glow -p "$f"; else bat --style=plain "$f" 2>/dev/null || command cat "$f"; fi
+	local -a files=(~/.config/ghostty/CHEATSHEET.md)
+	[ -f ~/.config/ghostty/CHEATSHEET.local.md ] && files+=(~/.config/ghostty/CHEATSHEET.local.md)
+	if command -v glow >/dev/null; then
+		command cat "${files[@]}" | glow -p -
+	else
+		bat --style=plain --language=md "${files[@]}" 2>/dev/null || command cat "${files[@]}"
+	fi
 }

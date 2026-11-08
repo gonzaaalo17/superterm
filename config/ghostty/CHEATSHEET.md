@@ -103,7 +103,7 @@
 
 ## Prompt
 ```
-  ~/Projects/syntropic   dev ⇡4 !2 +1 ?1  +12 -3   took 4s
+  ~/Projects/myapp   dev ⇡4 !2 +1 ?1  +12 -3   took 4s
 ❯
 ```
 | Symbol | Meaning |
@@ -228,7 +228,6 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 | `sqlite3` | SQLite shell |
 | `jq` | Query and pretty-print JSON (`curl … \| jq .`) |
 | `nvim` · `vim` · `nano` | Editors |
-| `syntropic` · `syntropic-sandbox` | Syntropic's terminal (dev / sandbox) |
 
 ### Containers
 | Tool | What for |

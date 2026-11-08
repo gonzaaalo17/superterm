@@ -70,6 +70,9 @@ On another machine: `git pull` (and `./install.sh --links` if a new file was add
 
 ## Not in the repo, on purpose
 
+Personal, per-machine extras go in `~/.bash_aliases.local` and `~/.config/ghostty/CHEATSHEET.local.md`:
+both are loaded when present (by `~/.bash_aliases` and `cheat`) and never committed.
+
 Secrets and per-machine state: atuin's key and history database, `gh` tokens, git credentials,
 `~/.config/ai/config.json` (the chosen model), and anything the installer downloads (plugins,
 binaries).

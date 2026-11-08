@@ -1,7 +1,7 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
 # Two-line prompt, no powerline segments:
-#     ~/Projects/syntropic    dev ⇡4 !2 +1 ?1  +12 -3   v3.13  took 4s
+#     ~/Projects/myapp    dev ⇡4 !2 +1 ?1  +12 -3   v3.13  took 4s
 #   ❯
 # Nerd Font glyphs are written as \uXXXX escapes on purpose: raw private-use
 # characters get lost easily when this file is edited or copied.

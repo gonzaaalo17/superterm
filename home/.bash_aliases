@@ -54,9 +54,8 @@ alias path='tr ":" "\n" <<< "$PATH"'
 alias ports='ss -tulpn'
 alias update='sudo dnf upgrade --refresh && flatpak update'
 
-# ── Projects ────────────────────────────────────────────────────────────
-# syntropic's terminal in development — the repository's code, against the development stack.
-# the sandbox's is `syntropic-sandbox` (~/.local/bin, docs/project/06).
-alias syntropic='uv run --project ~/Projects/syntropic/src/api syntropic'
+# ── This machine only ───────────────────────────────────────────────────
+# Personal aliases live in ~/.bash_aliases.local, which is not in the repo.
+[ -f ~/.bash_aliases.local ] && . ~/.bash_aliases.local
 
 unset -f _has
