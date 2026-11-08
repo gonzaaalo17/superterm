@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""ai — ask a local Ollama model from the terminal.
+
+  ai "question"                  ask anything
+  ai --explain "tar -xzf f.tgz"  explain a command, its flags, with examples
+  cmd | ai "question"            use piped output as context
+  cmd | ai --explain ["focus"]   explain piped output (an error, a log, a diff…)
+  ai --models                    list local models (* = active)
+  ai --switch [model]            change the default model (fzf picker if no name)
+  ai -m model "question"         use another model just this once
+
+Everything runs locally through Ollama; nothing leaves the machine.
+Config: ~/.config/ai/config.json · Env: AI_MODEL, OLLAMA_HOST
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+CONFIG_PATH = os.path.expanduser("~/.config/ai/config.json")
+DEFAULT_MODEL = "qwen2.5-coder:7b"
+HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+if not HOST.startswith("http"):
+    HOST = "http://" + HOST
+MAX_STDIN = 12_000  # characters of piped input sent to the model
+
+TTY_ERR = sys.stderr.isatty()
+DIM, BOLD, RED, RESET = ("\033[2m", "\033[1m", "\033[31m", "\033[0m") if TTY_ERR else ("",) * 4
+
+
+class Renderer:
+    """Turns streamed markdown into terminal colours, line by line (only on a TTY)."""
+
+    CODE, INLINE, HEAD, B, R = "\033[32m", "\033[36m", "\033[1;35m", "\033[1m", "\033[0m"
+
+    def __init__(self, out):
+        self.out, self.buf, self.in_code = out, "", False
+        self.enabled = out.isatty()
+
+    def feed(self, text):
+        if not self.enabled:
+            self.out.write(text)
+            self.out.flush()
+            return
+        self.buf += text
+        while "\n" in self.buf:
+            line, self.buf = self.buf.split("\n", 1)
+            self._line(line)
+
+    def close(self):
+        if self.enabled and self.buf:
+            self._line(self.buf)
+        self.buf = ""
+
+    def _line(self, line):
+        if line.lstrip().startswith("```"):
+            self.in_code = not self.in_code
+            return
+        if self.in_code:
+            self.out.write(f"  {self.CODE}{line}{self.R}\n")
+        else:
+            m = re.match(r"^(#{1,6})\s+(.*)", line)
+            if m:
+                line = f"{self.HEAD}{m.group(2)}{self.R}"
+            line = re.sub(r"\*\*(.+?)\*\*", lambda m: f"{self.B}{m.group(1)}{self.R}", line)
+            line = re.sub(r"`([^`]+)`", lambda m: f"{self.INLINE}{m.group(1)}{self.R}", line)
+            self.out.write(line + "\n")
+        self.out.flush()
+
+SYSTEM_BASE = (
+    "You are a concise terminal assistant. The user runs Fedora Linux 44 (GNOME, Wayland), "
+    "bash, the Ghostty terminal and tmux. Current directory: {cwd}. "
+    "Always answer in the same language the user writes in. Be brief and practical: "
+    "lead with the answer, then only the detail that helps. Put commands in backticks or "
+    "fenced code blocks. Prefer tools available on Fedora (dnf, systemctl, journalctl, ss, "
+    "rg, fd, eza, bat). Never invent flags or options; if you are not sure, say so. "
+    "Never suggest weakening security as a fix: no chmod/chown on system directories, "
+    "no chmod 777, no disabling SELinux or the firewall, no curl | sh from unknown sources. "
+    "When root is needed, suggest sudo for that single command."
+)
+SYSTEM_EXPLAIN_CMD = (
+    " The user wants a command explained: say in one line what it does, then explain each "
+    "part and flag, then give 2-3 practical examples."
+)
+SYSTEM_EXPLAIN_PIPED = (
+    " The user piped the output of a command (an error, a log, a diff…) and wants it "
+    "explained: say what it means, the likely cause, and the safe fix. No examples section."
+)
+
+
+def die(msg, code=1):
+    print(f"{RED}ai:{RESET} {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def load_config():
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_config(cfg):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(cfg, f, indent=2)
+        f.write("\n")
+
+
+def current_model():
+    return os.environ.get("AI_MODEL") or load_config().get("model") or DEFAULT_MODEL
+
+
+def api(path, payload=None, stream=False):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(
+        HOST + path, data=data, headers={"Content-Type": "application/json"}
+    )
+    try:
+        resp = urllib.request.urlopen(req, timeout=600)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        try:
+            body = json.loads(body).get("error", body)
+        except json.JSONDecodeError:
+            pass
+        raise RuntimeError(body) from None
+    except (urllib.error.URLError, ConnectionError):
+        die(f"cannot reach Ollama at {HOST}. Is it running?  sudo systemctl start ollama")
+    return resp if stream else json.load(resp)
+
+
+def list_models():
+    return sorted(api("/api/tags").get("models", []), key=lambda m: m["name"])
+
+
+def cmd_models():
+    active = current_model()
+    models = list_models()
+    if not models:
+        die("no local models. Pull one with: ollama pull qwen2.5-coder:7b")
+    width = max(len(m["name"]) for m in models)
+    for m in models:
+        mark = f"{BOLD}*{RESET}" if m["name"] == active else " "
+        size = f'{m.get("size", 0) / 1e9:.1f} GB'
+        params = m.get("details", {}).get("parameter_size", "")
+        print(f"{mark} {m['name']:<{width}}  {size:>7}  {params}")
+    if active not in {m["name"] for m in models}:
+        print(f"\n{RED}active model '{active}' is not installed{RESET}", file=sys.stderr)
+
+
+def cmd_switch(name):
+    names = [m["name"] for m in list_models()]
+    if not name:
+        if shutil.which("fzf") and sys.stdin.isatty():
+            r = subprocess.run(
+                ["fzf", "--height=40%", "--reverse", f"--header=Active: {current_model()}"],
+                input="\n".join(names), text=True, capture_output=True,
+            )
+            name = r.stdout.strip()
+            if not name:
+                return
+        else:
+            die("usage: ai --switch MODEL   (see ai --models)")
+    if name not in names:
+        # allow "qwen2.5-coder" to mean "qwen2.5-coder:latest" or a unique prefix
+        matches = [n for n in names if n.startswith(name)]
+        if len(matches) != 1:
+            die(f"model '{name}' not found. Available:\n  " + "\n  ".join(names))
+        name = matches[0]
+    cfg = load_config()
+    cfg["model"] = name
+    save_config(cfg)
+    print(f"default model: {BOLD}{name}{RESET}")
+
+
+def read_stdin():
+    if sys.stdin.isatty():
+        return None
+    data = sys.stdin.read()
+    if not data.strip():
+        return None
+    if len(data) > MAX_STDIN:
+        print(f"{DIM}(piped input truncated to the last {MAX_STDIN} characters){RESET}",
+              file=sys.stderr)
+        data = data[-MAX_STDIN:]
+    return data
+
+
+def ask(model, question, explain, piped):
+    system = SYSTEM_BASE.format(cwd=os.getcwd())
+    if explain:
+        system += SYSTEM_EXPLAIN_PIPED if piped else SYSTEM_EXPLAIN_CMD
+    parts = []
+    if piped:
+        parts.append(f"Input piped from a command:\n```\n{piped.rstrip()}\n```")
+    if explain and not piped:
+        parts.append(f"Explain this command: {question}")
+    elif question:
+        parts.append(question)
+    else:
+        parts.append("Explain this.")
+    messages = [{"role": "system", "content": system},
+                {"role": "user", "content": "\n\n".join(parts)}]
+
+    if TTY_ERR:
+        print(f"{DIM}▌ {model}{RESET}", file=sys.stderr)
+    try:
+        resp = api("/api/chat", {"model": model, "messages": messages, "stream": True}, stream=True)
+    except RuntimeError as e:
+        if "not found" in str(e):
+            die(f"model '{model}' is not installed. See: ai --models · ai --switch")
+        die(str(e))
+    last = ""
+    render = Renderer(sys.stdout)
+    for line in resp:
+        if not line.strip():
+            continue
+        chunk = json.loads(line)
+        if "error" in chunk:
+            die(chunk["error"])
+        text = chunk.get("message", {}).get("content", "")
+        if text:
+            render.feed(text)
+            last = text
+        if chunk.get("done"):
+            break
+    render.close()
+    if not render.enabled and not last.endswith("\n"):
+        sys.stdout.write("\n")
+
+
+def main():
+    p = argparse.ArgumentParser(
+        prog="ai", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+        usage="ai [-e] [-m MODEL] [question …] | --models | --switch [MODEL]",
+    )
+    p.add_argument("question", nargs="*", help="what to ask (quote it)")
+    p.add_argument("-e", "--explain", action="store_true",
+                   help="explain a command, or the piped output")
+    p.add_argument("-m", "--model", help="model for this call only")
+    p.add_argument("--models", action="store_true", help="list local models")
+    p.add_argument("--switch", nargs="?", const="", metavar="MODEL",
+                   help="set the default model (picker if empty)")
+    a = p.parse_args()
+
+    if a.models:
+        return cmd_models()
+    if a.switch is not None:
+        return cmd_switch(a.switch)
+
+    question = " ".join(a.question).strip()
+    piped = read_stdin()
+    if not question and not piped:
+        p.print_help()
+        return
+    ask(a.model or current_model(), question, a.explain, piped)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(file=sys.stderr)
+        sys.exit(130)
+    except BrokenPipeError:
+        # output was cut short (e.g. `ai … | head`): exit quietly
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(0)

@@ -1,0 +1,37 @@
+# Fedora packages (dnf). One per line; comments allowed.
+# Shell and prompt helpers
+atuin
+zoxide
+fzf
+direnv
+thefuck
+# Modern CLI replacements
+bat
+eza
+fd-find
+ripgrep
+git-delta
+du-dust
+duf
+procs
+gdu
+tealdeer
+glow
+hyperfine
+trash-cli
+btop
+htop
+fastfetch
+# Terminal, multiplexer, editor
+tmux
+neovim
+cascadia-code-fonts
+# Plumbing used by the setup
+git
+gh
+jq
+curl
+unzip
+xz
+wl-clipboard
+python3

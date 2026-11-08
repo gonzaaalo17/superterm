@@ -1,0 +1,86 @@
+# ── Ghostty ─────────────────────────────────────────────────────────────
+# Live reload: Ctrl+Shift+,      All options: ghostty +show-config --default --docs
+# Keybinding cheatsheet: run `cheat`
+
+# ── Theme (follows GNOME light/dark mode) ───────────────────────────────
+theme = light:Catppuccin Latte,dark:Catppuccin Mocha
+
+# ── Font (Nerd Font icons are built into Ghostty, any font works) ───────
+font-family = Cascadia Code
+font-size = 11
+font-feature = calt
+font-feature = liga
+adjust-cell-height = 10%
+
+# ── Window ──────────────────────────────────────────────────────────────
+window-padding-x = 10
+window-padding-y = 8
+window-padding-balance = true
+window-padding-color = extend
+background-opacity = 0.85
+background-blur = true
+
+# Pure black titlebar (window-theme = ghostty lets us colour it)
+window-theme = ghostty
+window-titlebar-background = #000000
+window-titlebar-foreground = #cdd6f4
+window-inherit-working-directory = true
+confirm-close-surface = false
+gtk-single-instance = true
+resize-overlay = never
+
+# ── Cursor and mouse ────────────────────────────────────────────────────
+cursor-style = bar
+cursor-style-blink = false
+mouse-hide-while-typing = true
+copy-on-select = clipboard
+clipboard-paste-protection = true
+link-url = true
+
+# ── Shell integration ───────────────────────────────────────────────────
+# cursor/title/sudo: local niceties · ssh-*: correct terminfo and TERM over ssh
+shell-integration = detect
+shell-integration-features = cursor,sudo,title,ssh-env,ssh-terminfo
+
+# ── Always start inside tmux (uncomment if you want it) ─────────────────
+# command = tmux new-session -A -s main
+
+# ── Keybindings ─────────────────────────────────────────────────────────
+# Full list in `cheat`. Ghostty defaults not listed here still apply
+# (tabs: Ctrl+Shift+T/W, Ctrl+Tab, Alt+1..9 · windows: Ctrl+Shift+N …).
+keybind = ctrl+shift+comma=reload_config
+
+# Ctrl+C copies when text is selected; with no selection it still interrupts (SIGINT).
+# Ctrl+V pastes. (Literal Ctrl+V is gone: in nvim use Ctrl+Q for visual block.)
+keybind = performable:ctrl+c=copy_to_clipboard
+keybind = ctrl+v=paste_from_clipboard
+
+# Font size
+keybind = ctrl+equal=increase_font_size:1
+keybind = ctrl+minus=decrease_font_size:1
+keybind = ctrl+zero=reset_font_size
+
+# Splits. Ctrl+Shift+O / E are Ghostty's defaults; D is an easier alias for "down".
+keybind = ctrl+shift+o=new_split:right
+keybind = ctrl+shift+e=new_split:down
+keybind = ctrl+shift+d=new_split:down
+keybind = ctrl+shift+z=toggle_split_zoom
+keybind = ctrl+shift+enter=toggle_split_zoom
+keybind = ctrl+shift+x=close_surface
+keybind = ctrl+shift+equal=equalize_splits
+# Move between splits: Ctrl+Alt+H/J/K/L (the default Ctrl+Alt+arrows belong to
+# GNOME's workspace switching, so they never reach Ghostty)
+keybind = ctrl+alt+h=goto_split:left
+keybind = ctrl+alt+j=goto_split:down
+keybind = ctrl+alt+k=goto_split:up
+keybind = ctrl+alt+l=goto_split:right
+
+# Window
+keybind = f11=toggle_fullscreen
+
+# Scrollback and prompts
+keybind = ctrl+shift+up=jump_to_prompt:-1
+keybind = ctrl+shift+down=jump_to_prompt:1
+keybind = ctrl+shift+f=start_search
+keybind = ctrl+shift+s=write_screen_file:open
+keybind = ctrl+shift+i=inspector:toggle

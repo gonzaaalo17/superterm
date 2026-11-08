@@ -1,0 +1,20 @@
+# lazygit — the Catppuccin theme lives in theme-mocha.yml / theme-latte.yml and is picked
+# automatically through LG_CONFIG_FILE (~/.bashrc.d/10-env.sh).
+gui:
+  nerdFontsVersion: "3"
+  showIcons: true
+  border: rounded
+  showRandomTip: false
+  showBottomLine: true
+  sidePanelWidth: 0.3333
+git:
+  # Press | to toggle between delta and plain git diff
+  diffRenderers:
+    - command: delta --{{colorScheme}} --paging=never {{if gt .width 160}}--side-by-side{{end}} --width={{width}}
+      name: delta
+    - type: rawGit
+      name: git
+  log:
+    showGraph: always
+os:
+  editPreset: nvim

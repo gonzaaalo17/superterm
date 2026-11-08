@@ -1,0 +1,4 @@
+# Catppuccin: yazi detects on its own whether the terminal is light or dark
+[flavor]
+dark  = "catppuccin-mocha"
+light = "catppuccin-latte"

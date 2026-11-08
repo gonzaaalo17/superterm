@@ -1,0 +1,4 @@
+# Nothing machine-specific or secret belongs here.
+*.bak
+*.swp
+.DS_Store
