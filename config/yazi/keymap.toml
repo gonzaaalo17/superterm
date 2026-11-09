@@ -1,0 +1,11 @@
+# Enter / l on a folder goes into it; on a file it opens it (smart-enter plugin).
+# To leave yazi with your shell in the current folder, start it with `y` and quit with `q`.
+[[mgr.prepend_keymap]]
+on   = "<Enter>"
+run  = "plugin smart-enter"
+desc = "Enter the folder, or open the file"
+
+[[mgr.prepend_keymap]]
+on   = "l"
+run  = "plugin smart-enter"
+desc = "Enter the folder, or open the file"

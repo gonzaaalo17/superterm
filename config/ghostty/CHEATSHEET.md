@@ -263,6 +263,6 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 
 ## TUI apps: basic keys
 - **lazygit**: `space` stage/unstage · `c` commit · `P` push · `p` pull · `|` switch diff renderer · `?` help
-- **yazi** (Markdown files are previewed rendered): `h/j/k/l` move · `space` select · `y`/`x`/`p` copy/cut/paste · `a` create · `r` rename · `d` trash · `/` search · `z` jump with zoxide · `q` quit
+- **yazi** (Markdown files are previewed rendered): `Enter` / `l` go into a folder or open a file · `h/j/k` move · `space` select · `y`/`x`/`p` copy/cut/paste · `a` create · `r` rename · `d` trash · `/` search · `z` jump with zoxide · `q` quit
 - **lazydocker**: `[`/`]` tabs · `l` logs · `s` stop · `r` restart · `d` remove
 - **btop**: `h/j/k/l` move · `f` filter · `k` kill process · `m` menu

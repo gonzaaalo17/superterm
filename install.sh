@@ -149,7 +149,7 @@ install_links() {
     for f in config.yml theme-mocha.yml theme-latte.yml; do
         link "config/lazygit/$f" "$HOME/.config/lazygit/$f"
     done
-    for f in yazi.toml theme.toml init.lua package.toml; do
+    for f in yazi.toml theme.toml init.lua package.toml keymap.toml; do
         link "config/yazi/$f" "$HOME/.config/yazi/$f"
     done
     for f in "$DOTFILES"/config/btop/themes/*.theme; do
