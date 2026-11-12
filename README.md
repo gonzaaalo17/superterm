@@ -69,6 +69,13 @@ login if the machine was off at that time):
 the user part. A desktop notification appears if a step fails or a reboot is needed; nothing
 reboots on its own.
 
+It also warns about orphaned packages: installed, but no enabled repo offers them any more, so
+`dnf upgrade` silently stops updating them and they can block a Fedora release upgrade (this
+happened when Fedora renamed `nodejs` to `nodejs22`). For each one it names the repo package
+that now provides it and prints the `dnf do` command that swaps them; run by hand, `update-all`
+offers to run it (dnf still shows the transaction and asks). The timer only notifies: it never
+removes packages unattended. Locally built kernel modules (`kmod-*`, from akmods) are ignored.
+
 ```bash
 systemctl list-timers weekly-update.timer; systemctl --user list-timers update-all.timer
 journalctl -u weekly-update          # last system update
