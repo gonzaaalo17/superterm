@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# update-all: bring everything on this machine up to date.
+#
+#   update-all          system (dnf + flatpak, asks for sudo) and then the user part
+#   update-all --user   only the user part: what the weekly user timer runs
+#
+# The system part also runs on its own every week as root (weekly-update.timer),
+# so day to day you never need to call this by hand.
+# Logs of the automatic runs: journalctl --user -u update-all
+#                             journalctl -u weekly-update
+
+set -uo pipefail
+
+DOTFILES="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+USER_ONLY=0
+case "${1:-}" in
+    --user) USER_ONLY=1 ;;
+    "") ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+esac
+
+failed=()
+step() { # name command...
+    local name=$1; shift
+    printf '\n\033[1;35m==>\033[0m %s\n' "$name"
+    "$@" || { printf '  \033[31m✗ %s failed\033[0m\n' "$name" >&2; failed+=("$name"); }
+}
+has() { command -v "$1" >/dev/null; }
+
+# ── System (only when run by hand; the root timer covers it otherwise) ──
+if [ $USER_ONLY = 0 ]; then
+    step "dnf"           sudo dnf upgrade --refresh -y
+    has flatpak && step "flatpak (system)" sudo flatpak update -y --noninteractive
+fi
+
+# ── User ────────────────────────────────────────────────────────────────
+has flatpak && step "flatpak (user)" flatpak update --user -y --noninteractive
+has uv && step "uv: Python versions" uv python upgrade
+has uv && step "uv: tools"           uv tool upgrade --all
+step "superterm: binaries, links, plugins" "$DOTFILES/install.sh" --no-packages --update
+tpm="$HOME/.config/tmux/plugins/tpm/bin/update_plugins"
+[ -x "$tpm" ] && step "tmux plugins" "$tpm" all
+has ya && step "yazi plugins" ya pkg upgrade
+
+# ── Summary ─────────────────────────────────────────────────────────────
+notify() { has notify-send && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && notify-send -a update-all "$@"; }
+
+if ! dnf -q needs-restarting >/dev/null 2>&1; then
+    echo; echo "Reboot needed: core libraries or the kernel were updated."
+    notify -i system-reboot "Reboot recommended" "The system was updated; restart when convenient."
+fi
+
+echo
+if [ ${#failed[@]} -eq 0 ]; then
+    echo "All up to date."
+else
+    echo "Failed: ${failed[*]}" >&2
+    notify -u critical -i dialog-warning "update-all: something failed" \
+        "${failed[*]} — see: journalctl --user -u update-all"
+    exit 1
+fi

@@ -1,0 +1,12 @@
+# Installed to /etc/systemd/system/ by install.sh.
+[Unit]
+Description=Weekly system update
+
+[Timer]
+OnCalendar=Mon *-*-* 10:00
+RandomizedDelaySec=10min
+# If the machine was off at that time, run at the next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

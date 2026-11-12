@@ -1,0 +1,12 @@
+[Unit]
+Description=Run update-all --user every week
+
+[Timer]
+# 30 min after the system update (weekly-update.timer, Mondays 10:00).
+OnCalendar=Mon *-*-* 10:30
+RandomizedDelaySec=10min
+# If the machine was off at that time, run at the next login.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

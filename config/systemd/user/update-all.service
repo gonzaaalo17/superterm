@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly update of user-level tools (update-all --user)
+Documentation=file://%h/Projects/superterm/README.md
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin
+# After a missed run the timer fires at login, maybe before the network is up.
+ExecStartPre=/usr/bin/timeout 300 /bin/sh -c 'until getent hosts api.github.com >/dev/null; do sleep 10; done'
+ExecStart=%h/.local/bin/update-all --user
+Nice=10

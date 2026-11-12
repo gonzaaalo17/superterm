@@ -244,6 +244,7 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 ### Docs, media, helpers
 | Tool | What for |
 |---|---|
+| `update-all` | Update everything now (runs weekly on its own; `--user` skips dnf) |
 | `tldr` | Quick examples for any command |
 | `glow` | Render Markdown (`glow README.md`); `glow` alone browses the `.md` files in a folder |
 | `ffmpeg` | Convert or cut audio and video |

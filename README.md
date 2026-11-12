@@ -24,12 +24,14 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
 
 `install.sh` does, in order:
 
-1. **Packages** — Ghostty (COPR `scottames/ghostty`) and everything in `packages.txt`, with dnf.
+1. **Packages** — Ghostty (COPR `scottames/ghostty`) and everything in `packages.txt`, with dnf,
+   plus the weekly system update timer (see *Updates*).
 2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, yazi
    and ble.sh — latest GitHub releases, each verified against its published sha256.
 3. **Links** — every config in this repo is symlinked into place. Anything already there is moved
    to `~/.dotfiles-backup/<timestamp>/` first. `~/.gitconfig` only gets an `[include]` of
-   `git/delta.gitconfig`; the rest of it (name, email, credentials) is left alone.
+   `git/delta.gitconfig`; the rest of it (name, email, credentials) is left alone. The weekly
+   user update timer is enabled here.
 4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, tldr pages.
 
 It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`, `--update`
@@ -53,13 +55,39 @@ git push
 
 On another machine: `git pull` (and `./install.sh --links` if a new file was added).
 
+## Updates
+
+Everything updates itself once a week, with two systemd timers (they run at the next boot or
+login if the machine was off at that time):
+
+| Timer | When | What |
+|---|---|---|
+| `weekly-update.timer` (system, root) | Mondays 10:00 | `dnf upgrade` and system flatpaks |
+| `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), tmux and yazi plugins, tldr pages |
+
+`update-all` runs the same by hand (system part included, with sudo); `update-all --user` only
+the user part. A desktop notification appears if a step fails or a reboot is needed; nothing
+reboots on its own.
+
+```bash
+systemctl list-timers weekly-update.timer; systemctl --user list-timers update-all.timer
+journalctl -u weekly-update          # last system update
+journalctl --user -u update-all      # last user update
+```
+
+`ya pkg upgrade` records the new plugin revisions in `config/yazi/package.toml`, so after an
+update that file may show up in `git status`: commit it to keep the other machines in step.
+Ollama is not included: it updates by rerunning its official installer.
+
 ## Layout
 
 | Path | Goes to |
 |---|---|
 | `home/.bashrc`, `.bash_aliases`, `.bash_functs` | `~/` |
 | `home/.bashrc.d/10-env.sh`, `20-tools.sh` | `~/.bashrc.d/` (environment, tool init) |
-| `bin/ai` | `~/.local/bin/ai` |
+| `bin/ai`, `bin/update-all` | `~/.local/bin/` |
+| `config/systemd/user/update-all.*` | `~/.config/systemd/user/` (weekly user updates) |
+| `system/weekly-update.*` | copied to `/etc/systemd/system/` (weekly system update, as root) |
 | `config/ghostty/` | `~/.config/ghostty/` (config + `CHEATSHEET.md` for `cheat`) |
 | `config/tmux/tmux.conf` | `~/.config/tmux/` |
 | `config/starship.toml` | `~/.config/` |

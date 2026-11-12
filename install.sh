@@ -44,6 +44,18 @@ install_packages() {
     mapfile -t pkgs < <(grep -vE '^\s*(#|$)' "$DOTFILES/packages.txt")
     sudo dnf install -y "${pkgs[@]}"
     ok "${#pkgs[@]} packages"
+
+    # Weekly unattended system update. Copied, not linked: it runs as root, so it
+    # must not point at files the user can edit.
+    local u changed=0
+    for u in weekly-update.service weekly-update.timer; do
+        if ! cmp -s "$DOTFILES/system/$u" "/etc/systemd/system/$u"; then
+            sudo install -m644 "$DOTFILES/system/$u" "/etc/systemd/system/$u"; changed=1
+        fi
+    done
+    [ $changed = 1 ] && sudo systemctl daemon-reload
+    systemctl is-enabled -q weekly-update.timer 2>/dev/null || sudo systemctl enable --now weekly-update.timer
+    ok "weekly-update.timer (system: dnf + flatpak, Mondays)"
 }
 
 # ── 2. Binaries not packaged in Fedora (GitHub releases, checksum-verified) ──
@@ -142,6 +154,9 @@ install_links() {
     link home/.bashrc.d/10-env.sh   "$HOME/.bashrc.d/10-env.sh"
     link home/.bashrc.d/20-tools.sh "$HOME/.bashrc.d/20-tools.sh"
     link bin/ai                     "$BIN/ai"
+    link bin/update-all             "$BIN/update-all"
+    link config/systemd/user/update-all.service "$HOME/.config/systemd/user/update-all.service"
+    link config/systemd/user/update-all.timer   "$HOME/.config/systemd/user/update-all.timer"
     link config/ghostty/config.ghostty "$HOME/.config/ghostty/config.ghostty"
     link config/ghostty/CHEATSHEET.md  "$HOME/.config/ghostty/CHEATSHEET.md"
     link config/tmux/tmux.conf      "$HOME/.config/tmux/tmux.conf"
@@ -166,6 +181,13 @@ install_links() {
     local inc="$DOTFILES/git/delta.gitconfig"
     if ! git config --global --get-all include.path 2>/dev/null | grep -qxF "$inc"; then
         git config --global --add include.path "$inc"; ok "~/.gitconfig includes git/delta.gitconfig"
+    fi
+
+    # weekly user-level updates (update-all --user)
+    if command -v systemctl >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
+        systemctl --user daemon-reload
+        systemctl --user is-enabled -q update-all.timer 2>/dev/null \
+            || { systemctl --user enable --now update-all.timer >/dev/null && ok "update-all.timer (user, Mondays)"; }
     fi
 }
 

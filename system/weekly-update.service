@@ -1,0 +1,12 @@
+# Installed to /etc/systemd/system/ by install.sh (copied, not linked: it runs as root).
+[Unit]
+Description=Weekly system update (dnf and system flatpaks)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dnf upgrade --refresh -y
+ExecStart=/usr/bin/flatpak update -y --noninteractive
+Nice=10
+IOSchedulingClass=idle
