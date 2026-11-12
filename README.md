@@ -82,6 +82,33 @@ official installer, but it only acts when there is a newer release, checks its s
 restores the previous version if the new one does not start. If a root run fails, the next user
 run raises the notification.
 
+## Installing new tools
+
+Take the first row that fits. Rows 1–5 are covered by the weekly updates; anything installed any
+other way is never updated by anyone.
+
+| # | What | How | Where it lands |
+|---|---|---|---|
+| 1 | Anything packaged in Fedora | `sudo dnf install X` — and add it to `packages.txt` | `/usr` |
+| 2 | Desktop apps | Flatpak (Flathub) | sandboxed |
+| 3 | Python CLIs | `uv tool install X` | `~/.local/share/uv/tools`, command in `~/.local/bin` |
+| 4 | JavaScript CLIs | `npm i -g X` (npm's prefix is `~/.local`: no sudo) | `~/.local` |
+| 5 | Binaries only published on GitHub | a block in `install.sh`, like lazygit (checksum-verified) | `~/.local/bin` |
+| 6 | Databases and services (Postgres, Redis…) | a container (`docker` / `podman`), never on the host | the container |
+| 7 | Experiments, odd dependencies | `toolbox create`, install inside, throw away | the container |
+
+Project dependencies stay inside the project: `uv add X` (its `.venv`; a `.python-version` makes
+uv fetch that Python on its own) and `npm install X` (its `node_modules`). One-off runs need no
+install at all: `uvx tool`, `npx tool`.
+
+New languages: Go and Java from dnf (`golang`, `java-XX-openjdk-devel`); Rust with rustup (then
+add `rustup update` to `update-all`). Several versions of the same language at once is when a
+version manager like mise starts to pay off.
+
+Never: `sudo pip`, `pip install --user`, `sudo npm i -g`, tarballs unpacked by hand into `/opt`
+or `/usr/local` (Ollama is the one exception, handled by `update-ollama`), `curl … | sh` as
+root without reading it, or hand-added `PATH` lines in `.bashrc`.
+
 ## Layout
 
 | Path | Goes to |
