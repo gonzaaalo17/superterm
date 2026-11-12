@@ -27,15 +27,6 @@ if [ -d ~/.bashrc.d ]; then
 fi
 unset rc
 
-# Java (only if a JDK is installed)
-if [ -d /usr/lib/jvm/java ]; then
-    export JAVA_HOME=/usr/lib/jvm/java
-    export PATH=$JAVA_HOME/bin:$PATH
-fi
-
-# Rust (only if rustup is installed)
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-
 # Aliases
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases

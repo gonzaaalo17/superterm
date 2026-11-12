@@ -220,9 +220,7 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 | `gh` | GitHub from the terminal: PRs, issues, repos |
 | `direnv` | Per-folder env vars from `.envrc` |
 | `uv` · `uvx` | Python projects, venvs and one-off tools |
-| `cargo` · `rustup` | Rust |
 | `node` · `npm` | JavaScript |
-| `mvn` · `java` | Java |
 | `make` · `cmake` · `ninja` | Builds |
 | `gdb` | Debugger |
 | `sqlite3` | SQLite shell |
@@ -242,15 +240,12 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 | `ai` | Local LLM via Ollama (see the `ai` section) |
 | `ollama` | Manage local models (`ollama list`, `ollama pull`) |
 | `claude` | Claude Code |
-| `aider` | AI pair programming in git repos |
 
 ### Docs, media, helpers
 | Tool | What for |
 |---|---|
 | `tldr` | Quick examples for any command |
 | `glow` | Render Markdown (`glow README.md`); `glow` alone browses the `.md` files in a folder |
-| `markitdown` | Convert PDF / Word / Excel / HTML to Markdown |
-| `magika` | Detect a file's real type |
 | `ffmpeg` | Convert or cut audio and video |
 | `magick` | ImageMagick: resize and convert images |
 | `pwgen` | Generate passwords |
