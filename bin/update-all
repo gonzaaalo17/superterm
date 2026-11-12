@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # update-all: bring everything on this machine up to date.
 #
-#   update-all          system (dnf + flatpak, asks for sudo) and then the user part
+#   update-all          system (dnf, flatpak, Ollama; asks for sudo) and then the user part
 #   update-all --user   only the user part: what the weekly user timer runs
 #
 # The system part also runs on its own every week as root (weekly-update.timer),
@@ -32,12 +32,17 @@ has() { command -v "$1" >/dev/null; }
 if [ $USER_ONLY = 0 ]; then
     step "dnf"           sudo dnf upgrade --refresh -y
     has flatpak && step "flatpak (system)" sudo flatpak update -y --noninteractive
+    [ -x /usr/local/sbin/update-ollama ] && step "ollama" sudo /usr/local/sbin/update-ollama
 fi
 
 # ── User ────────────────────────────────────────────────────────────────
 has flatpak && step "flatpak (user)" flatpak update --user -y --noninteractive
 has uv && step "uv: Python versions" uv python upgrade
 has uv && step "uv: tools"           uv tool upgrade --all
+# Global npm CLIs, only when they live in $HOME (npm prefix ~/.local), never with sudo.
+if has npm && [[ "$(npm config get prefix 2>/dev/null)" == "$HOME"* ]]; then
+    step "npm: global tools" npm update -g
+fi
 step "superterm: binaries, links, plugins" "$DOTFILES/install.sh" --no-packages --update
 tpm="$HOME/.config/tmux/plugins/tpm/bin/update_plugins"
 [ -x "$tpm" ] && step "tmux plugins" "$tpm" all
@@ -45,6 +50,11 @@ has ya && step "yazi plugins" ya pkg upgrade
 
 # ── Summary ─────────────────────────────────────────────────────────────
 notify() { has notify-send && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && notify-send -a update-all "$@"; }
+
+# The root timer cannot notify the desktop, so report its failures from here.
+if systemctl is-failed -q weekly-update.service 2>/dev/null; then
+    failed+=("system update (journalctl -u weekly-update)")
+fi
 
 if ! dnf -q needs-restarting >/dev/null 2>&1; then
     echo; echo "Reboot needed: core libraries or the kernel were updated."

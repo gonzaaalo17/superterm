@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# update-ollama: update the Ollama install in /usr/local to the latest GitHub release.
+# Installed to /usr/local/sbin/ by install.sh and run as root by weekly-update.service.
+#
+# Same layout as Ollama's official installer (bin/ollama + lib/ollama under /usr/local),
+# but: only acts when a newer version exists, checks the release sha256 before touching
+# anything, and puts the previous version back if the new one does not start.
+
+set -euo pipefail
+
+PREFIX=/usr/local
+ASSET=ollama-linux-amd64.tar.zst
+BIN=$PREFIX/bin/ollama LIB=$PREFIX/lib/ollama
+
+[ -x "$BIN" ] || { echo "Ollama is not installed in $PREFIX; nothing to do."; exit 0; }
+[ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
+[ "$(uname -m)" = x86_64 ] || { echo "only x86_64 is wired up" >&2; exit 1; }
+
+installed=$("$BIN" --version 2>&1 | tail -1 | awk '{print $NF}')
+json=$(curl -fsSL -H 'Accept: application/vnd.github+json' \
+    https://api.github.com/repos/ollama/ollama/releases/latest)
+latest=$(jq -r .tag_name <<<"$json"); latest=${latest#v}
+[ -n "$latest" ] && [ "$latest" != null ] || { echo "could not read the latest release" >&2; exit 1; }
+
+if [ "$installed" = "$latest" ]; then
+    echo "Ollama $installed is the latest version."
+    exit 0
+fi
+echo "Updating Ollama $installed -> $latest"
+
+url=$(jq -r --arg n "$ASSET" '.assets[] | select(.name==$n) | .browser_download_url' <<<"$json")
+digest=$(jq -r --arg n "$ASSET" '.assets[] | select(.name==$n) | .digest // empty' <<<"$json")
+digest=${digest#sha256:}
+[ -n "$url" ] && [ "$url" != null ] || { echo "asset $ASSET not found" >&2; exit 1; }
+[ -n "$digest" ] || { echo "no sha256 published for $ASSET" >&2; exit 1; }
+
+# ~1.5 GB: /var/tmp is on disk, /tmp is RAM.
+tmp=$(mktemp -d /var/tmp/update-ollama.XXXXXX)
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL -o "$tmp/$ASSET" "$url"
+echo "$digest  $tmp/$ASSET" | sha256sum -c --quiet -
+mkdir "$tmp/new"
+tar --zstd -xf "$tmp/$ASSET" -C "$tmp/new"
+[ -x "$tmp/new/bin/ollama" ] && [ -d "$tmp/new/lib/ollama" ] || { echo "unexpected archive layout" >&2; exit 1; }
+
+was_active=0; systemctl is-active -q ollama && was_active=1
+systemctl stop ollama 2>/dev/null || true
+
+# Keep the old version until the new one is known to work.
+rm -rf "$tmp/old"; mkdir "$tmp/old"
+cp -a "$BIN" "$tmp/old/ollama"; mv "$LIB" "$tmp/old/lib"
+install -m755 "$tmp/new/bin/ollama" "$BIN"
+mv "$tmp/new/lib/ollama" "$LIB"
+restorecon -R "$BIN" "$LIB" 2>/dev/null || true   # SELinux labels for files moved from /var/tmp
+
+rollback() {
+    echo "New version failed to start; restoring $installed" >&2
+    systemctl stop ollama 2>/dev/null || true
+    rm -rf "$LIB"; mv "$tmp/old/lib" "$LIB"; install -m755 "$tmp/old/ollama" "$BIN"
+    restorecon -R "$BIN" "$LIB" 2>/dev/null || true
+    [ $was_active = 1 ] && systemctl start ollama
+    exit 1
+}
+
+if [ $was_active = 1 ]; then
+    systemctl start ollama || rollback
+    for _ in $(seq 30); do
+        "$BIN" --version 2>&1 | grep -q "version is $latest" && break
+        sleep 1
+    done
+    systemctl is-active -q ollama || rollback
+fi
+"$BIN" --version 2>&1 | tail -1 | grep -q "$latest" || rollback
+echo "Ollama updated to $latest."

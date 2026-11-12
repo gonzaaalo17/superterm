@@ -53,9 +53,11 @@ install_packages() {
             sudo install -m644 "$DOTFILES/system/$u" "/etc/systemd/system/$u"; changed=1
         fi
     done
+    cmp -s "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama \
+        || sudo install -m755 "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama
     [ $changed = 1 ] && sudo systemctl daemon-reload
     systemctl is-enabled -q weekly-update.timer 2>/dev/null || sudo systemctl enable --now weekly-update.timer
-    ok "weekly-update.timer (system: dnf + flatpak, Mondays)"
+    ok "weekly-update.timer (system: dnf, flatpak, Ollama; Mondays)"
 }
 
 # ── 2. Binaries not packaged in Fedora (GitHub releases, checksum-verified) ──

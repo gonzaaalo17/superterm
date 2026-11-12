@@ -62,7 +62,7 @@ login if the machine was off at that time):
 
 | Timer | When | What |
 |---|---|---|
-| `weekly-update.timer` (system, root) | Mondays 10:00 | `dnf upgrade` and system flatpaks |
+| `weekly-update.timer` (system, root) | Mondays 10:00 | `dnf upgrade`, system flatpaks and Ollama (`update-ollama`) |
 | `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), tmux and yazi plugins, tldr pages |
 
 `update-all` runs the same by hand (system part included, with sudo); `update-all --user` only
@@ -77,7 +77,10 @@ journalctl --user -u update-all      # last user update
 
 `ya pkg upgrade` records the new plugin revisions in `config/yazi/package.toml`, so after an
 update that file may show up in `git status`: commit it to keep the other machines in step.
-Ollama is not included: it updates by rerunning its official installer.
+Ollama is updated by `system/update-ollama` (copied to `/usr/local/sbin/`): same layout as the
+official installer, but it only acts when there is a newer release, checks its sha256 first, and
+restores the previous version if the new one does not start. If a root run fails, the next user
+run raises the notification.
 
 ## Layout
 
@@ -88,6 +91,7 @@ Ollama is not included: it updates by rerunning its official installer.
 | `bin/ai`, `bin/update-all` | `~/.local/bin/` |
 | `config/systemd/user/update-all.*` | `~/.config/systemd/user/` (weekly user updates) |
 | `system/weekly-update.*` | copied to `/etc/systemd/system/` (weekly system update, as root) |
+| `system/update-ollama` | copied to `/usr/local/sbin/` (run by the system update) |
 | `config/ghostty/` | `~/.config/ghostty/` (config + `CHEATSHEET.md` for `cheat`) |
 | `config/tmux/tmux.conf` | `~/.config/tmux/` |
 | `config/starship.toml` | `~/.config/` |

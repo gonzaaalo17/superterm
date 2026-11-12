@@ -1,6 +1,6 @@
 # Installed to /etc/systemd/system/ by install.sh (copied, not linked: it runs as root).
 [Unit]
-Description=Weekly system update (dnf and system flatpaks)
+Description=Weekly system update (dnf, system flatpaks, Ollama)
 Wants=network-online.target
 After=network-online.target
 
@@ -8,5 +8,7 @@ After=network-online.target
 Type=oneshot
 ExecStart=/usr/bin/dnf upgrade --refresh -y
 ExecStart=/usr/bin/flatpak update -y --noninteractive
+# Skips itself when Ollama is not installed or already current.
+ExecStart=/usr/local/sbin/update-ollama
 Nice=10
 IOSchedulingClass=idle
