@@ -6,11 +6,20 @@ map("n", "U", "<C-r>", { desc = "Redo" })
 map("n", "ñ", "~", { desc = "Toggle case" })
 map("n", "´", "*", { desc = "Search word under cursor" })
 
--- Arrows move between windows (Ctrl+h/j/k/l also works, and crosses into tmux panes)
-map("n", "<Up>", "<C-w>k", { desc = "Window up" })
-map("n", "<Down>", "<C-w>j", { desc = "Window down" })
-map("n", "<Left>", "<C-w>h", { desc = "Window left" })
-map("n", "<Right>", "<C-w>l", { desc = "Window right" })
+-- Arrows move between windows (Ctrl+h/j/k/l also works, and crosses into tmux panes).
+-- In lists and panels (quickfix, :Lazy, :Mason, DBUI…) they keep moving the cursor.
+local function arrow(key, wincmd)
+  return function()
+    if vim.bo.buftype ~= "" then
+      return vim.api.nvim_feedkeys(vim.keycode(key), "n", false)
+    end
+    vim.cmd.wincmd({ wincmd, count = vim.v.count1 })
+  end
+end
+map("n", "<Up>", arrow("<Up>", "k"), { desc = "Window up" })
+map("n", "<Down>", arrow("<Down>", "j"), { desc = "Window down" })
+map("n", "<Left>", arrow("<Left>", "h"), { desc = "Window left" })
+map("n", "<Right>", arrow("<Right>", "l"), { desc = "Window right" })
 
 -- Enter / Alt+Enter: insert [count] blank lines below / above.
 -- Only in normal, editable buffers: quickfix, help, pickers… keep their own Enter.
