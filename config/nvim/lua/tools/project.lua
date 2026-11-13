@@ -128,15 +128,75 @@ local providers = {
   mssql = "sqlserver",
 }
 
+local default_ports = { postgres = "5432", mysql = "3306", sqlserver = "1433" }
+
+--- Host port a compose service of this project publishes for `port` (e.g. "db", "5432"),
+--- from the running containers. nil if the service is not running or the port not published.
+local function published_port(root, service, port)
+  local res = vim
+    .system({
+      "docker",
+      "ps",
+      "--filter",
+      "label=com.docker.compose.service=" .. service,
+      "--format",
+      '{{.Label "com.docker.compose.project.working_dir"}}\t{{.Ports}}',
+    }, { text = true })
+    :wait()
+  if res.code ~= 0 then
+    return nil
+  end
+  for line in res.stdout:gmatch("[^\n]+") do
+    local wd, ports = line:match("^([^\t]*)\t(.*)$")
+    if wd and (wd == root or vim.startswith(wd, root .. "/")) then
+      for host_port, cport in ports:gmatch(":(%d+)%->(%d+)/tcp") do
+        if cport == port then
+          return host_port
+        end
+      end
+    end
+  end
+end
+
 --- Normalises a URL for lazysql and dadbod. nil if the scheme is not supported.
+--- `note` says what was adapted, for the notification (never the password).
 local function parse_url(url, root)
-  local scheme = url:match("^(%a[%w+]*):")
-  local provider = scheme and providers[scheme:lower()]
+  local scheme = url:match("^(%a[%w+.-]*):")
+  -- SQLAlchemy-style driver suffixes (postgresql+psycopg, mysql+pymysql…) mean nothing here
+  local base = scheme and scheme:lower():gsub("%+.*$", "")
+  local provider = base and providers[base]
   if not provider then
     return nil
   end
   if provider ~= "sqlite3" then
-    return { provider = provider, lazysql = url, dadbod = url }
+    local rest = url:sub(#scheme + 2) -- after "scheme:"
+    local auth, tail = rest:match("^//([^/?#]*)(.*)$")
+    local notes = {}
+    if auth then
+      local userinfo, hostport = auth:match("^(.*@)(.*)$")
+      userinfo, hostport = userinfo or "", hostport or auth
+      local host, port = hostport:match("^(.-):(%d+)$")
+      host, port = host or hostport, port or default_ports[provider]
+      -- A compose service name (`db`) only resolves inside the compose network: use the
+      -- port it publishes on this machine instead.
+      if host ~= "" and not host:find("[.:]") and host ~= "localhost" then
+        local hp = published_port(root, host, port)
+        if hp then
+          notes[#notes + 1] = ("%s:%s → 127.0.0.1:%s (compose)"):format(host, port, hp)
+          host, port = "127.0.0.1", hp
+        else
+          notes[#notes + 1] = ("host %s: not a running compose service with a published port"):format(host)
+        end
+      end
+      url = ("%s://%s%s:%s%s"):format(base, userinfo, host, port, tail)
+      -- lazysql's Postgres driver requires SSL unless told otherwise; local servers rarely have it
+      if provider == "postgres" and (host == "127.0.0.1" or host == "localhost") and not url:find("sslmode=") then
+        url = url .. (url:find("?", 1, true) and "&" or "?") .. "sslmode=disable"
+      end
+    else
+      url = base .. ":" .. rest
+    end
+    return { provider = provider, lazysql = url, dadbod = url, note = table.concat(notes, "; ") }
   end
   -- sqlite: lazysql only opens file:<path> (sqlite://… fails), dadbod wants sqlite:<path>
   local path = url:gsub("^%a+:", ""):gsub("^//", "")
@@ -186,6 +246,15 @@ function M.lazysql()
       { title = "lazysql" }
     )
     return M.lazysql_global()
+  end
+  local notes = {}
+  for _, c in ipairs(conns) do
+    if c.note ~= "" then
+      notes[#notes + 1] = "- " .. c.name .. ": " .. c.note
+    end
+  end
+  if #notes > 0 then
+    vim.notify(table.concat(notes, "\n"), vim.log.levels.INFO, { title = "lazysql" })
   end
   -- A throwaway config in Neovim's private temp dir (0700, wiped when Neovim exits), so
   -- passwords stay off the command line. The wrapper also removes it as soon as lazysql ends.
