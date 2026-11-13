@@ -8,7 +8,7 @@
 ```
 
 **superterm** — my terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
-thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, yazi, btop and a local-LLM `ai` command — all in
+thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, lazysql, yazi, btop and a local-LLM `ai` command — all in
 Catppuccin, following GNOME's light/dark mode.
 
 ## New machine
@@ -26,7 +26,7 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
 
 1. **Packages** — Ghostty (COPR `scottames/ghostty`) and everything in `packages.txt`, with dnf,
    plus the weekly system update timer (see *Updates*).
-2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, yazi
+2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, lazysql, yazi
    and ble.sh — latest GitHub releases, each verified against its published sha256.
 3. **Links** — every config in this repo is symlinked into place. Anything already there is moved
    to `~/.dotfiles-backup/<timestamp>/` first. `~/.gitconfig` only gets an `[include]` of
@@ -69,6 +69,24 @@ and keymaps apply as documented, so any LazyVim guide works as is. On top of it:
 | `lua/plugins/tmux.lua` | `Ctrl+h/j/k/l` crosses between nvim windows and tmux panes |
 | `lazyvim.json` | enabled LazyVim extras (languages, debugger, tests) |
 | `lazy-lock.json` | exact plugin versions, restored by `install.sh` |
+| `lua/plugins/project-tools.lua`, `lua/tools/project.lua` | lazygit / lazydocker / lazysql / dadbod on the current project |
+
+**Global vs project.** In the shell lazygit, lazydocker and lazysql work as always (global). Inside
+Neovim they open on the current project, its git root:
+
+- `Space gg` lazygit. Edits made from it open in the same Neovim, and it keeps superterm's theme.
+- `Space od` lazydocker on the compose project(s) whose containers were started from inside the
+  project (read from the containers' compose labels; a picker if there are several, e.g. a
+  sandbox stack next to the main one). Standalone containers, images, volumes and networks stay
+  global: lazydocker cannot filter those. `Space oD` is the global view.
+- `Space os` lazysql on the project's databases: `.lazysql.toml` in the root (lazysql's own
+  format) or else every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`. The connections go
+  through a private temporary file, never the command line. `Space oS` is the global list.
+- `Space D` dadbod-ui with the same `.env` connections.
+
+URLs that use a compose service name as host (`db:5432`) only resolve inside the compose network;
+from the host, use what the port is published on (`localhost`). Keep `.lazysql.toml` out of git if
+it holds passwords. lazysql is always run with `-no-telemetry`, also via the shell alias.
 
 **Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
 formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.
