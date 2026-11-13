@@ -13,9 +13,8 @@ ripgrep
 git-delta
 du-dust
 duf
-procs
 gdu
-tealdeer
+tldr
 glow
 hyperfine
 trash-cli

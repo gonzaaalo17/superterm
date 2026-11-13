@@ -190,7 +190,6 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 |---|---|
 | `btop` | System monitor (`top`) |
 | `htop` | Classic process monitor |
-| `procs` | Modern `ps`, coloured and searchable |
 | `dust` | Disk usage as a tree |
 | `duf` | Free space per disk |
 | `gdu` | Interactive disk usage explorer: find and delete what's eating space |
