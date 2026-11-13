@@ -2,3 +2,4 @@
 -- everything in lua/config and lua/plugins is added on top. See README.md.
 require("config.lazy")
 require("config.commands")
+require("tools.ai") -- :AIModel
