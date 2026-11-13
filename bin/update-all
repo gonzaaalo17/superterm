@@ -38,6 +38,21 @@ fi
 # ── User ────────────────────────────────────────────────────────────────
 has flatpak && step "flatpak (user)" flatpak update --user -y --noninteractive
 has uv && step "uv: Python versions" uv python upgrade
+# `uv python upgrade` installs the new patch release but keeps the old one. Venvs point at
+# the per-minor link (cpython-3.12-…), never at a patch, so older patches of a minor that
+# has a newer one installed are dead weight.
+old_pythons() {
+    uv python list --only-installed --managed-python --output-format json | jq -r '
+        [.[] | {key, p: .version_parts.patch,
+                g: "\(.implementation)-\(.version_parts.major).\(.version_parts.minor)-\(.variant)-\(.arch)"}]
+        | unique_by(.key) | group_by(.g) | map(sort_by(.p) | .[:-1][] | .key) | .[]'
+}
+prune_pythons() {
+    local old; mapfile -t old < <(old_pythons) || return 1
+    [ ${#old[@]} -eq 0 ] && { echo "  nothing to remove"; return 0; }
+    uv python uninstall "${old[@]}"
+}
+has uv && has jq && step "uv: remove superseded Python patches" prune_pythons
 has uv && step "uv: tools"           uv tool upgrade --all
 # Global npm CLIs, only when they live in $HOME (npm prefix ~/.local), never with sudo.
 if has npm && [[ "$(npm config get prefix 2>/dev/null)" == "$HOME"* ]]; then
