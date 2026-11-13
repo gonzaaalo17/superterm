@@ -77,11 +77,35 @@ return {
   },
   {
     "kristijanhusak/vim-dadbod-ui",
-    init = function()
-      vim.api.nvim_create_autocmd({ "VimEnter", "DirChanged" }, {
-        group = vim.api.nvim_create_augroup("project_dbs", { clear = true }),
-        callback = function()
+    -- The project's .env is read when DBUI opens (and again on :cd while it is loaded),
+    -- not on every Neovim start.
+    keys = {
+      {
+        "<leader>D",
+        function()
           project().set_dbs()
+          vim.cmd("DBUIToggle")
+        end,
+        desc = "Toggle DBUI (project databases)",
+      },
+    },
+    init = function()
+      local group = vim.api.nvim_create_augroup("project_dbs", { clear = true })
+      vim.api.nvim_create_autocmd("User", {
+        group = group,
+        pattern = "LazyLoad",
+        callback = function(ev)
+          if ev.data == "vim-dadbod-ui" then
+            project().set_dbs() -- also when opened with :DBUI
+          end
+        end,
+      })
+      vim.api.nvim_create_autocmd("DirChanged", {
+        group = group,
+        callback = function()
+          if package.loaded["tools.project"] and vim.g.loaded_dbui then
+            project().set_dbs()
+          end
         end,
       })
     end,
