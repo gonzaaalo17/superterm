@@ -129,6 +129,9 @@ LazyVim's own keys apply as documented (https://www.lazyvim.org/keymaps). Press 
 |---|---|
 | `Space Space` / `Space /` | Find file / grep in the project |
 | `Space e` | File explorer |
+| `Space fp` / `Space fz` | Open a project: git repos in ~/Projects + recent / any folder zoxide knows |
+| `Space bd` / `Space wd` | Close the buffer (the window stays) / close the window (the split) |
+| `Ctrl+w o` | Keep only the current window |
 | `Space gg` | lazygit on the project (`e` on a file opens it in this nvim) |
 | `Space od` / `Space oD` | lazydocker: this project's compose stack / everything |
 | `Space os` / `Space oS` | lazysql: this project's databases / the global connections |
