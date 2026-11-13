@@ -1,0 +1,1 @@
+-- Autocmds added on top of LazyVim's: https://www.lazyvim.org/configuration/general
