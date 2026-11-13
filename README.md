@@ -40,6 +40,7 @@ It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`
 Optional extras, not automated:
 
 - `ai` needs [Ollama](https://ollama.com) and a model: `ollama pull qwen2.5-coder:7b`.
+- AI in Neovim needs `ollama pull qwen2.5-coder:1.5b-base` (completion) and `ollama pull qwen2.5-coder:14b` (chat), or whatever `:AIModel` is set to.
 - `atuin import bash` brings the old bash history into `Ctrl+R`.
 
 ## Day to day
@@ -70,6 +71,7 @@ and keymaps apply as documented, so any LazyVim guide works as is. On top of it:
 | `lazyvim.json` | enabled LazyVim extras (languages, debugger, tests) |
 | `lazy-lock.json` | exact plugin versions, restored by `install.sh` |
 | `lua/plugins/project-tools.lua`, `lua/tools/project.lua` | lazygit / lazydocker / lazysql / dadbod on the current project |
+| `lua/plugins/ai.lua`, `lua/tools/ai.lua` | local AI: inline completion and chat, models per machine |
 
 **Global vs project.** In the shell lazygit, lazydocker and lazysql work as always (global). Inside
 Neovim they open on the current project, its git root:
@@ -87,6 +89,23 @@ Neovim they open on the current project, its git root:
 URLs that use a compose service name as host (`db:5432`) only resolve inside the compose network;
 from the host, use what the port is published on (`localhost`). Keep `.lazysql.toml` out of git if
 it holds passwords. lazysql is always run with `-no-telemetry`, also via the shell alias.
+
+**Local AI** (`lua/plugins/ai.lua`, `lua/tools/ai.lua`), all through Ollama, nothing leaves the machine:
+
+- Inline completion while typing (minuet-ai): grey text, `Tab` accepts, `Alt+a` one line,
+  `Alt+]`/`Alt+[` next/previous, `Alt+e` dismiss, `Space at` toggles it in the buffer.
+- Chat and inline edits (CodeCompanion): `Space aa` chat, `Space ai` inline (also on a selection),
+  `Space ap` actions, `Space ac` send the selection to the chat. Answers in Spanish; it reads the
+  project's rule files (`AGENTS.md`, `CLAUDE.md`…), not `~/.claude/CLAUDE.md`.
+- Each has its own model, per machine, in `~/.config/ai/config.json` (the `ai` command's file,
+  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 16384}`. `Space am` /
+  `:AIModel` picks them from the installed models; completion switches at once, chat from the next
+  conversation. On a machine with more VRAM, just point them at bigger models.
+
+Defaults, measured on an 8 GB RTX 5060: completion `qwen2.5-coder:1.5b-base` (~300 ms, always on
+the GPU); chat `qwen2.5-coder:14b` (~11 tok/s, partly on CPU). The 14b does not fit next to the
+completion model, so going from chat to typing (or back) reloads one of them, ~4-5 s the first
+time. `qwen2.5-coder:7b` as chat model runs at ~74 tok/s and fits next to it: no reloads.
 
 **Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
 formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.

@@ -134,6 +134,9 @@ LazyVim's own keys apply as documented (https://www.lazyvim.org/keymaps). Press 
 | `Space os` / `Space oS` | lazysql: this project's databases / the global connections |
 | `Space D` | dadbod-ui: SQL editor with table completion, project databases |
 | `Space l` / `:LazyExtras` | Plugins / add a language (`x` to enable) |
+| `Tab` · `Alt+a` · `Alt+]`/`Alt+[` · `Alt+e` | AI suggestion: accept · one line · next/prev · dismiss |
+| `Space aa` / `Space ai` / `Space ap` | Local AI chat / inline edit / actions |
+| `Space am` · `Space at` | Pick AI models (completion, chat) · toggle completion |
 | `Ctrl+h/j/k/l` · arrows | Move between windows (Ctrl crosses into tmux panes) |
 | `U` · `ñ` · `´` | Redo · toggle case · search word under cursor |
 | `Enter` / `Alt+Enter` | Blank line(s) below / above |
