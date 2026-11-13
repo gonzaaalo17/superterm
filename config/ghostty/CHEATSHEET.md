@@ -6,16 +6,16 @@
 | Key | Action |
 |---|---|
 | `Ctrl+C` | Copy if text is selected; otherwise interrupt the program (as always) |
-| `Ctrl+V` | Paste |
-| `Ctrl+Shift+C` / `V` | Copy / paste (always works too) |
+| `Ctrl+Shift+V` | Paste |
+| `Ctrl+Shift+C` | Copy (always works) |
+| `Ctrl+V` | Goes to the program: pastes an image in Claude Code, visual block in nvim |
 | `Ctrl+Shift+A` | Select all |
 | `Ctrl+Shift+,` | Reload config |
 | `Ctrl+Shift+P` | Command palette (every action, searchable) |
 | `Ctrl+Shift+I` | Inspector |
 
 > Inside tmux, mouse drag is tmux's selection: it copies to the clipboard on release,
-> then `Ctrl+V` pastes. Hold `Shift` while dragging for a Ghostty selection instead.
-> In nvim, literal `Ctrl+V` (visual block) is now `Ctrl+Q`.
+> then `Ctrl+Shift+V` pastes. Hold `Shift` while dragging for a Ghostty selection instead.
 
 ### Windows
 | Key | Action |

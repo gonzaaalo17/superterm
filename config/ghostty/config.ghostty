@@ -51,9 +51,9 @@ shell-integration-features = cursor,sudo,title,ssh-env,ssh-terminfo
 keybind = ctrl+shift+comma=reload_config
 
 # Ctrl+C copies when text is selected; with no selection it still interrupts (SIGINT).
-# Ctrl+V pastes. (Literal Ctrl+V is gone: in nvim use Ctrl+Q for visual block.)
+# Ctrl+V is left to the program, not bound here: Claude Code reads images from the clipboard
+# with it, and nvim uses it for visual block. Paste text with Ctrl+Shift+V.
 keybind = performable:ctrl+c=copy_to_clipboard
-keybind = ctrl+v=paste_from_clipboard
 
 # Font size
 keybind = ctrl+equal=increase_font_size:1
