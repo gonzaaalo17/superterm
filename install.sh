@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Terminal setup installer: Ghostty + bash (ble.sh, starship, atuin, fzf…) + tmux + TUI apps.
+# Terminal setup installer: Ghostty + bash (ble.sh, starship, atuin, fzf…) + tmux + Neovim + TUI apps.
 #
 #   ./install.sh               everything (asks for sudo for dnf)
 #   ./install.sh --links       only (re)create the config symlinks
@@ -162,6 +162,7 @@ install_links() {
     link config/ghostty/config.ghostty "$HOME/.config/ghostty/config.ghostty"
     link config/ghostty/CHEATSHEET.md  "$HOME/.config/ghostty/CHEATSHEET.md"
     link config/tmux/tmux.conf      "$HOME/.config/tmux/tmux.conf"
+    link config/nvim                "$HOME/.config/nvim"
     link config/starship.toml       "$HOME/.config/starship.toml"
     for f in config.yml theme-mocha.yml theme-latte.yml; do
         link "config/lazygit/$f" "$HOME/.config/lazygit/$f"
@@ -200,6 +201,10 @@ install_plugins() {
     [ -d "$tpm" ] || git clone -q --depth 1 https://github.com/tmux-plugins/tpm "$tpm"
     "$tpm/bin/install_plugins" >/dev/null && ok "tmux plugins (TPM)"
     if command -v ya >/dev/null; then ya pkg install >/dev/null && ok "yazi plugins and flavors"; fi
+    # Neovim plugins at the exact versions in config/nvim/lazy-lock.json
+    if command -v nvim >/dev/null; then
+        nvim --headless "+Lazy! restore" +qa >/dev/null 2>&1 && ok "nvim plugins (lazy-lock.json; LSPs install on first launch)"
+    fi
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
 

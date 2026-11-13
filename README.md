@@ -8,7 +8,7 @@
 ```
 
 **superterm** — my terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
-thefuck) + **tmux**, with lazygit, lazydocker, yazi, btop and a local-LLM `ai` command — all in
+thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, yazi, btop and a local-LLM `ai` command — all in
 Catppuccin, following GNOME's light/dark mode.
 
 ## New machine
@@ -54,6 +54,27 @@ git push
 ```
 
 On another machine: `git pull` (and `./install.sh --links` if a new file was added).
+
+## Neovim
+
+`config/nvim/` is a Neovim config built on [LazyVim](https://www.lazyvim.org): LazyVim's defaults
+and keymaps apply as documented, so any LazyVim guide works as is. On top of it:
+
+| File | What |
+|---|---|
+| `lua/config/options.lua` | differences from LazyVim's options; light/dark from GNOME |
+| `lua/config/keymaps.lua` | extra keys LazyVim leaves free: `U` redo, `ñ` toggle case, `´` search word, arrows move between windows, `Enter`/`Alt+Enter` blank lines below/above |
+| `lua/config/commands.lua` | `:Bufrando` (run normal keys or an Ex command on a set of buffers) |
+| `lua/plugins/colorscheme.lua` | Catppuccin Mocha/Latte, transparent background (Ghostty's opacity shows through) |
+| `lua/plugins/tmux.lua` | `Ctrl+h/j/k/l` crosses between nvim windows and tmux panes |
+| `lazyvim.json` | enabled LazyVim extras (languages, debugger, tests) |
+| `lazy-lock.json` | exact plugin versions, restored by `install.sh` |
+
+**Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
+formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.
+**Your own plugins:** a new file in `lua/plugins/` returning a lazy.nvim spec.
+**Updating plugins:** `:Lazy update`, then commit `lazy-lock.json` so other machines get the same versions.
+LSPs and tools are installed by Mason on first launch (`:Mason` to see them).
 
 ## Updates
 
@@ -128,6 +149,7 @@ root without reading it, or hand-added `PATH` lines in `.bashrc`.
 | `system/update-ollama` | copied to `/usr/local/sbin/` (run by the system update) |
 | `config/ghostty/` | `~/.config/ghostty/` (config + `CHEATSHEET.md` for `cheat`) |
 | `config/tmux/tmux.conf` | `~/.config/tmux/` |
+| `config/nvim/` | `~/.config/nvim` (whole directory) |
 | `config/starship.toml` | `~/.config/` |
 | `config/lazygit/`, `config/yazi/`, `config/thefuck/` | `~/.config/…` |
 | `config/btop/` | themes linked; `btop.conf` copied once (btop rewrites it on exit) |
