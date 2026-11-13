@@ -24,6 +24,21 @@ return {
     end,
   },
   {
+    -- Dashboard "p" / <leader>fp: projects are the git repos under these folders plus the
+    -- recent ones. Snacks' default is ~/projects (lowercase), which does not exist here.
+    "folke/snacks.nvim",
+    opts = { picker = { sources = { projects = { dev = { "~/Projects" } } } } },
+    keys = {
+      {
+        "<leader>fz",
+        function()
+          Snacks.picker.zoxide()
+        end,
+        desc = "Projects (zoxide: dirs used in the shell)",
+      },
+    },
+  },
+  {
     "folke/which-key.nvim",
     opts = { spec = { { "<leader>o", group = "tools (project)", icon = { icon = "󰒓 ", color = "orange" } } } },
   },
