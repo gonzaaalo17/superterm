@@ -113,6 +113,13 @@ install_binaries() {
         ok "lazydocker $v"
     else ok "lazydocker already installed"; fi
 
+    if [ $UPDATE = 1 ] || ! command -v lazysql >/dev/null; then
+        json=$(gh_release jorgerojas26/lazysql)
+        fetch_verified "$json" lazysql_Linux_x86_64.tar.gz "$tmp/lsql.tgz"
+        mkdir -p "$tmp/lsql" && tar -xzf "$tmp/lsql.tgz" -C "$tmp/lsql" && install -m755 "$tmp/lsql/lazysql" "$BIN/"
+        ok "lazysql $(jq -r .tag_name <<<"$json")"
+    else ok "lazysql already installed"; fi
+
     if [ $UPDATE = 1 ] || ! command -v yazi >/dev/null; then
         json=$(gh_release sxyazi/yazi)
         fetch_verified "$json" yazi-x86_64-unknown-linux-musl.zip "$tmp/yazi.zip"

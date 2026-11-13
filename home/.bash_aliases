@@ -38,6 +38,8 @@ alias ip='ip -color=auto'
 # ── TUI apps ────────────────────────────────────────────────────────────
 alias lg='lazygit'
 alias lzd='lazydocker'
+alias lazysql='lazysql -no-telemetry'   # official builds send anonymous usage counts by default
+alias lsql='lazysql -no-telemetry'
 alias v='nvim'
 alias t='tmux new-session -A -s main'    # enter (or return to) the main session
 
