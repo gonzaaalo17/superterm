@@ -210,7 +210,9 @@ install_plugins() {
     if command -v ya >/dev/null; then ya pkg install >/dev/null && ok "yazi plugins and flavors"; fi
     # Neovim plugins at the exact versions in config/nvim/lazy-lock.json
     if command -v nvim >/dev/null; then
-        nvim --headless "+Lazy! restore" +qa >/dev/null 2>&1 && ok "nvim plugins (lazy-lock.json; LSPs install on first launch)"
+        if nvim --headless "+Lazy! restore" +qa >/dev/null 2>&1; then
+            ok "nvim plugins (lazy-lock.json; LSPs install on first launch)"
+        else warn "nvim plugins: restore failed, run :Lazy restore inside nvim"; fi
     fi
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
