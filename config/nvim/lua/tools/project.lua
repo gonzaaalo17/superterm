@@ -192,16 +192,13 @@ function M.lazysql()
   local cfg = vim.fn.tempname() .. ".toml"
   local lines = {}
   for _, c in ipairs(conns) do
-    vim.list_extend(
-      lines,
-      {
-        "[[database]]",
-        "Name = " .. toml_str(c.name),
-        "Provider = " .. toml_str(c.provider),
-        "URL = " .. toml_str(c.lazysql),
-        "",
-      }
-    )
+    vim.list_extend(lines, {
+      "[[database]]",
+      "Name = " .. toml_str(c.name),
+      "Provider = " .. toml_str(c.provider),
+      "URL = " .. toml_str(c.lazysql),
+      "",
+    })
   end
   vim.fn.writefile(lines, cfg)
   uv.fs_chmod(cfg, tonumber("600", 8))
