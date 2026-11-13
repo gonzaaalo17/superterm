@@ -98,9 +98,11 @@ local function read_env(path, vars)
     line = vim.trim(line):gsub("^export%s+", "")
     local key, val = line:match("^([%w_%.]+)%s*=%s*(.-)%s*$")
     if key then
-      local q = val:sub(1, 1)
-      if (q == '"' or q == "'") and val:sub(-1) == q and #val >= 2 then
-        val = val:sub(2, -2)
+      -- quoted: take what is between the quotes (a "# comment" may follow);
+      -- unquoted: a " #" starts a comment, a bare # is part of the value (p#ss)
+      local q, inner = val:match("^([\"'])(.-)%1")
+      if q then
+        val = inner
       else
         val = val:gsub("%s+#.*$", "")
       end
@@ -162,48 +164,71 @@ end
 --- `note` says what was adapted, for the notification (never the password).
 local function parse_url(url, root)
   local scheme = url:match("^(%a[%w+.-]*):")
-  -- SQLAlchemy-style driver suffixes (postgresql+psycopg, mysql+pymysql…) mean nothing here
-  local base = scheme and scheme:lower():gsub("%+.*$", "")
-  local provider = base and providers[base]
+  if not scheme then
+    return nil
+  end
+  -- SQLAlchemy-style driver suffixes (postgresql+psycopg, sqlite+aiosqlite…) mean nothing here
+  local base = scheme:lower():gsub("%+.*$", "")
+  local provider = providers[base]
   if not provider then
     return nil
   end
-  if provider ~= "sqlite3" then
-    local rest = url:sub(#scheme + 2) -- after "scheme:"
-    local auth, tail = rest:match("^//([^/?#]*)(.*)$")
-    local notes = {}
-    if auth then
-      local userinfo, hostport = auth:match("^(.*@)(.*)$")
-      userinfo, hostport = userinfo or "", hostport or auth
-      local host, port = hostport:match("^(.-):(%d+)$")
-      host, port = host or hostport, port or default_ports[provider]
-      -- A compose service name (`db`) only resolves inside the compose network: use the
-      -- port it publishes on this machine instead.
-      if host ~= "" and not host:find("[.:]") and host ~= "localhost" then
-        local hp = published_port(root, host, port)
-        if hp then
-          notes[#notes + 1] = ("%s:%s → 127.0.0.1:%s (compose)"):format(host, port, hp)
-          host, port = "127.0.0.1", hp
-        else
-          notes[#notes + 1] = ("host %s: not a running compose service with a published port"):format(host)
-        end
-      end
-      url = ("%s://%s%s:%s%s"):format(base, userinfo, host, port, tail)
-      -- lazysql's Postgres driver requires SSL unless told otherwise; local servers rarely have it
-      if provider == "postgres" and (host == "127.0.0.1" or host == "localhost") and not url:find("sslmode=") then
-        url = url .. (url:find("?", 1, true) and "&" or "?") .. "sslmode=disable"
-      end
-    else
-      url = base .. ":" .. rest
+  local rest = url:sub(#scheme + 2) -- everything after "scheme:"
+
+  if provider == "sqlite3" then
+    local path = rest:gsub("%?.*$", "")
+    if path:find(":memory:", 1, true) then
+      return nil
     end
-    return { provider = provider, lazysql = url, dadbod = url, note = table.concat(notes, "; ") }
+    if path:sub(1, 2) == "//" then
+      path = path:sub(3)
+      -- sqlite:///rel.db is relative, sqlite:////abs.db absolute (SQLAlchemy, dj-database-url);
+      -- file:///abs.db is a plain file URI
+      if base ~= "file" and path:sub(1, 1) == "/" then
+        path = path:sub(2)
+      end
+    end
+    if path == "" then
+      return nil
+    end
+    if path:sub(1, 1) ~= "/" then
+      path = vim.fs.normalize(root .. "/" .. path)
+    end
+    -- lazysql only opens file:<path> (sqlite://… fails), dadbod wants sqlite:<path>
+    return { provider = provider, lazysql = "file:" .. path, dadbod = "sqlite:" .. path, note = "" }
   end
-  -- sqlite: lazysql only opens file:<path> (sqlite://… fails), dadbod wants sqlite:<path>
-  local path = url:gsub("^%a+:", ""):gsub("^//", "")
-  if path:sub(1, 1) ~= "/" then
-    path = vim.fs.normalize(root .. "/" .. path)
+
+  local notes = {}
+  local local_host = false
+  local auth, tail = rest:match("^//([^/?]*)(.*)$") -- no # stop: unencoded passwords use it
+  if auth and auth ~= "" then
+    local userinfo, hostport = auth:match("^(.*@)(.*)$") -- last @: passwords may contain @
+    userinfo, hostport = userinfo or "", hostport or auth
+    local host, port = hostport:match("^(.-):(%d+)$")
+    host, port = host or hostport, port or default_ports[provider]
+    -- A compose service name (`db`) only resolves inside the compose network: use the
+    -- port it publishes on this machine instead.
+    if host ~= "" and not host:find("[.:%[]") and host ~= "localhost" then
+      local hp = published_port(root, host, port)
+      if hp then
+        notes[#notes + 1] = ("%s:%s → 127.0.0.1:%s (compose)"):format(host, port, hp)
+        host, port = "127.0.0.1", hp
+      else
+        notes[#notes + 1] = ("host %s: not a running compose service with a published port"):format(host)
+      end
+    end
+    local_host = host == "127.0.0.1" or host == "localhost" or host == "[::1]"
+    url = ("%s://%s%s:%s%s"):format(base, userinfo, host, port, tail)
+  else
+    -- no host (postgres:///db): the driver's default, localhost
+    local_host = true
+    url = base .. ":" .. rest
   end
-  return { provider = provider, lazysql = "file:" .. path, dadbod = "sqlite:" .. path }
+  -- lazysql's Postgres driver requires SSL unless told otherwise; local servers rarely have it
+  if provider == "postgres" and local_host and not url:find("sslmode=", 1, true) then
+    url = url .. (url:find("?", 1, true) and "&" or "?") .. "sslmode=disable"
+  end
+  return { provider = provider, lazysql = url, dadbod = url, note = table.concat(notes, "; ") }
 end
 
 --- Connections declared in the project's .env files.
