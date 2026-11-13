@@ -39,30 +39,48 @@ function M.host()
   return (host:gsub("/+$", ""))
 end
 
+--- The whole config file. nil + error message if it exists but is not valid JSON.
 local function read()
   local f = io.open(M.path, "r")
   if not f then
     return {}
   end
-  local ok, cfg = pcall(vim.json.decode, f:read("*a"))
+  local text = f:read("*a")
   f:close()
-  return ok and type(cfg) == "table" and cfg or {}
+  if vim.trim(text) == "" then
+    return {}
+  end
+  local ok, cfg = pcall(vim.json.decode, text)
+  if not ok or type(cfg) ~= "table" then
+    return nil, ("%s is not valid JSON: fix or delete it"):format(M.path)
+  end
+  return cfg
+end
+
+local function setting(key)
+  local nv = (read() or {}).nvim
+  return type(nv) == "table" and nv[key] or nil
 end
 
 ---@param role "complete"|"chat"
 function M.model(role)
-  local nv = read().nvim
-  return type(nv) == "table" and nv[role] or M.defaults[role]
+  local m = setting(role)
+  return type(m) == "string" and m ~= "" and m or M.defaults[role]
 end
 
 function M.chat_ctx()
-  local nv = read().nvim
-  return type(nv) == "table" and tonumber(nv.chat_ctx) or M.default_chat_ctx
+  local n = tonumber(setting("chat_ctx"))
+  return n and n > 0 and math.floor(n) or M.default_chat_ctx
 end
 
 --- Saves the model for a role, keeping every other key in the file (the `ai` command's too).
+--- Refuses to touch a file it cannot parse, so nothing in it is lost.
 function M.set(role, model)
-  local cfg = read()
+  local cfg, err = read()
+  if not cfg then
+    vim.notify(err, vim.log.levels.ERROR, { title = "AI" })
+    return false
+  end
   cfg.nvim = type(cfg.nvim) == "table" and cfg.nvim or {}
   cfg.nvim[role] = model
   vim.fn.mkdir(vim.fs.dirname(M.path), "p")
@@ -70,6 +88,7 @@ function M.set(role, model)
   for _, fn in ipairs(M.listeners[role] or {}) do
     fn(model)
   end
+  return true
 end
 
 --- Plugins register here to pick up a model change without restarting.
@@ -123,8 +142,7 @@ function M.pick(role)
       return n == current and (n .. "  ●") or n
     end,
   }, function(name)
-    if name then
-      M.set(role, name)
+    if name and M.set(role, name) then
       vim.notify(("%s → %s"):format(role, name), vim.log.levels.INFO, { title = "AI" })
     end
   end)
