@@ -4,7 +4,8 @@
 #   ./install.sh               everything (asks for sudo for dnf)
 #   ./install.sh --links       only (re)create the config symlinks
 #   ./install.sh --no-packages skip dnf (binaries, plugins and links only)
-#   ./install.sh --update      also re-download the GitHub binaries if already installed
+#   ./install.sh --update      also re-download the GitHub binaries if already installed and
+#                              update Neovim's plugins, parsers and Mason tools
 #
 # Safe to run again: existing files are moved to ~/.dotfiles-backup/<timestamp>/ before
 # being replaced, and links that already point here are left alone.
@@ -14,7 +15,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$HOME/.local/bin"
 BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-DO_PACKAGES=1 DO_BINARIES=1 DO_PLUGINS=1 UPDATE=0
+DO_PACKAGES=1 DO_BINARIES=1 DO_PLUGINS=1 UPDATE=0 FAILED=0
 TMP_DIRS=()
 trap '[ ${#TMP_DIRS[@]} -eq 0 ] || rm -rf "${TMP_DIRS[@]}"' EXIT
 
@@ -23,7 +24,7 @@ for arg in "$@"; do
         --links) DO_PACKAGES=0 DO_BINARIES=0 DO_PLUGINS=0 ;;
         --no-packages) DO_PACKAGES=0 ;;
         --update) UPDATE=1 ;;
-        -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
     esac
 done
@@ -208,9 +209,26 @@ install_plugins() {
     [ -d "$tpm" ] || git clone -q --depth 1 https://github.com/tmux-plugins/tpm "$tpm"
     "$tpm/bin/install_plugins" >/dev/null && ok "tmux plugins (TPM)"
     if command -v ya >/dev/null; then ya pkg install >/dev/null && ok "yazi plugins and flavors"; fi
-    # Neovim plugins at the exact versions in config/nvim/lazy-lock.json
+    # Neovim plugins. Install: the exact versions in config/nvim/lazy-lock.json.
+    # --update (the weekly update-all): latest plugins, treesitter parsers and Mason tools;
+    # the new lazy-lock.json is left in the repo to review and commit (see lua/tools/update.lua).
     if command -v nvim >/dev/null; then
-        if nvim --headless "+Lazy! restore" +qa >/dev/null 2>&1; then
+        if [ $UPDATE = 1 ]; then
+            local log; log="$(mktemp)"
+            if nvim --headless "+lua require('tools.update').run()" >"$log" 2>&1; then
+                grep -E '^  mason:' "$log" || true
+                if git -C "$DOTFILES" diff --quiet -- config/nvim/lazy-lock.json; then
+                    ok "nvim plugins, parsers and Mason tools up to date"
+                else
+                    ok "nvim updated: lazy-lock.json changed, review and commit it (git diff config/nvim/lazy-lock.json)"
+                fi
+            else
+                grep -E '^  (failed|mason):' "$log" >&2 || tail -n 20 "$log" >&2
+                warn "nvim update failed (to roll back: git checkout config/nvim/lazy-lock.json, then :Lazy restore)"
+                FAILED=1
+            fi
+            rm -f "$log"
+        elif nvim --headless "+Lazy! restore" +qa >/dev/null 2>&1; then
             ok "nvim plugins (lazy-lock.json; LSPs install on first launch)"
         else warn "nvim plugins: restore failed, run :Lazy restore inside nvim"; fi
     fi
@@ -233,3 +251,4 @@ cat <<'EOF'
     · optional: `atuin import bash` to bring your old history into Ctrl+R
     · `cheat` shows every shortcut
 EOF
+exit $FAILED

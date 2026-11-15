@@ -110,7 +110,11 @@ time. `qwen2.5-coder:7b` as chat model runs at ~74 tok/s and fits next to it: no
 **Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
 formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.
 **Your own plugins:** a new file in `lua/plugins/` returning a lazy.nvim spec.
-**Updating plugins:** `:Lazy update`, then commit `lazy-lock.json` so other machines get the same versions.
+**Updating:** Neovim itself comes from dnf. Plugins, treesitter parsers and Mason tools (LSPs,
+formatters, linters) update every Monday with `update-all` (`install.sh --update`), or by hand with
+`:Lazy update` and `:Mason`. The new `lazy-lock.json` is left uncommitted in the repo: review it
+(`git diff config/nvim/lazy-lock.json`) and commit it so other machines get the same versions. If an
+update breaks something, `git checkout config/nvim/lazy-lock.json` and `:Lazy restore` go back.
 LSPs and tools are installed by Mason on first launch (`:Mason` to see them).
 
 ## Updates
@@ -121,7 +125,7 @@ login if the machine was off at that time):
 | Timer | When | What |
 |---|---|---|
 | `weekly-update.timer` (system, root) | Mondays 10:00 | `dnf upgrade`, system flatpaks and Ollama (`update-ollama`) |
-| `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), tmux and yazi plugins, tldr pages |
+| `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), Neovim plugins, parsers and Mason tools, tmux and yazi plugins, tldr pages |
 
 `update-all` runs the same by hand (system part included, with sudo); `update-all --user` only
 the user part. A desktop notification appears if a step fails or a reboot is needed; nothing
