@@ -32,10 +32,11 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
    to `~/.dotfiles-backup/<timestamp>/` first. `~/.gitconfig` only gets an `[include]` of
    `git/delta.gitconfig`; the rest of it (name, email, credentials) is left alone. The weekly
    user update timer is enabled here.
-4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, tldr pages.
+4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, Neovim plugins (the versions in
+   `lazy-lock.json`), tldr pages.
 
 It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`, `--update`
-(re-download the binaries).
+(re-download the binaries; latest Neovim plugins, parsers and Mason tools).
 
 Optional extras, not automated:
 
