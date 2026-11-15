@@ -8,7 +8,7 @@
 ```
 
 **superterm** — my terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
-thefuck) + **tmux**, with lazygit, lazydocker, yazi, btop and a local-LLM `ai` command — all in
+thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, lazysql, yazi, btop and a local-LLM `ai` command — all in
 Catppuccin, following GNOME's light/dark mode.
 
 ## New machine
@@ -26,20 +26,22 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
 
 1. **Packages** — Ghostty (COPR `scottames/ghostty`) and everything in `packages.txt`, with dnf,
    plus the weekly system update timer (see *Updates*).
-2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, yazi
+2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, lazysql, yazi
    and ble.sh — latest GitHub releases, each verified against its published sha256.
 3. **Links** — every config in this repo is symlinked into place. Anything already there is moved
    to `~/.dotfiles-backup/<timestamp>/` first. `~/.gitconfig` only gets an `[include]` of
    `git/delta.gitconfig`; the rest of it (name, email, credentials) is left alone. The weekly
    user update timer is enabled here.
-4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, tldr pages.
+4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, Neovim plugins (the versions in
+   `lazy-lock.json`), tldr pages.
 
 It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`, `--update`
-(re-download the binaries).
+(re-download the binaries; latest Neovim plugins, parsers and Mason tools).
 
 Optional extras, not automated:
 
 - `ai` needs [Ollama](https://ollama.com) and a model: `ollama pull qwen2.5-coder:7b`.
+- AI in Neovim needs `ollama pull qwen2.5-coder:1.5b-base` (completion) and `ollama pull qwen2.5-coder:14b` (chat), or whatever `:AIModel` is set to.
 - `atuin import bash` brings the old bash history into `Ctrl+R`.
 
 ## Day to day
@@ -55,6 +57,67 @@ git push
 
 On another machine: `git pull` (and `./install.sh --links` if a new file was added).
 
+## Neovim
+
+`config/nvim/` is a Neovim config built on [LazyVim](https://www.lazyvim.org): LazyVim's defaults
+and keymaps apply as documented, so any LazyVim guide works as is. On top of it:
+
+| File | What |
+|---|---|
+| `lua/config/options.lua` | differences from LazyVim's options; light/dark from GNOME |
+| `lua/config/keymaps.lua` | extra keys LazyVim leaves free: `U` redo, `ñ` toggle case, `´` search word, arrows move between windows, `Enter`/`Alt+Enter` blank lines below/above |
+| `lua/config/commands.lua` | `:Bufrando` (run normal keys or an Ex command on a set of buffers) |
+| `lua/plugins/colorscheme.lua` | Catppuccin Mocha/Latte, transparent background (Ghostty's opacity shows through) |
+| `lua/plugins/tmux.lua` | `Ctrl+h/j/k/l` crosses between nvim windows and tmux panes |
+| `lazyvim.json` | enabled LazyVim extras (languages, debugger, tests) |
+| `lazy-lock.json` | exact plugin versions, restored by `install.sh` |
+| `lua/plugins/project-tools.lua`, `lua/tools/project.lua` | lazygit / lazydocker / lazysql / dadbod on the current project |
+| `lua/plugins/ai.lua`, `lua/tools/ai.lua` | local AI: inline completion and chat, models per machine |
+
+**Global vs project.** In the shell lazygit, lazydocker and lazysql work as always (global). Inside
+Neovim they open on the current project, its git root:
+
+- `Space gg` lazygit. Edits made from it open in the same Neovim, and it keeps superterm's theme.
+- `Space od` lazydocker on the compose project(s) whose containers were started from inside the
+  project (read from the containers' compose labels; a picker if there are several, e.g. a
+  sandbox stack next to the main one). Standalone containers, images, volumes and networks stay
+  global: lazydocker cannot filter those. `Space oD` is the global view.
+- `Space os` lazysql on the project's databases: `.lazysql.toml` in the root (lazysql's own
+  format) or else every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`. The connections go
+  through a private temporary file, never the command line. `Space oS` is the global list.
+- `Space D` dadbod-ui with the same `.env` connections.
+
+URLs that use a compose service name as host (`db:5432`) only resolve inside the compose network;
+from the host, use what the port is published on (`localhost`). Keep `.lazysql.toml` out of git if
+it holds passwords. lazysql is always run with `-no-telemetry`, also via the shell alias.
+
+**Local AI** (`lua/plugins/ai.lua`, `lua/tools/ai.lua`), all through Ollama, nothing leaves the machine:
+
+- Inline completion while typing (minuet-ai): grey text, `Tab` accepts, `Alt+a` one line,
+  `Alt+]`/`Alt+[` next/previous, `Alt+e` dismiss, `Space at` toggles it in the buffer.
+- Chat and inline edits (CodeCompanion): `Space aa` chat, `Space ai` inline (also on a selection),
+  `Space ap` actions, `Space ac` send the selection to the chat. Answers in Spanish; it reads the
+  project's rule files (`AGENTS.md`, `CLAUDE.md`…), not `~/.claude/CLAUDE.md`.
+- Each has its own model, per machine, in `~/.config/ai/config.json` (the `ai` command's file,
+  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 16384}`. `Space am` /
+  `:AIModel` picks them from the installed models; completion switches at once, chat from the next
+  conversation. On a machine with more VRAM, just point them at bigger models.
+
+Defaults, measured on an 8 GB RTX 5060: completion `qwen2.5-coder:1.5b-base` (~300 ms, always on
+the GPU); chat `qwen2.5-coder:14b` (~11 tok/s, partly on CPU). The 14b does not fit next to the
+completion model, so going from chat to typing (or back) reloads one of them, ~4-5 s the first
+time. `qwen2.5-coder:7b` as chat model runs at ~74 tok/s and fits next to it: no reloads.
+
+**Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
+formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.
+**Your own plugins:** a new file in `lua/plugins/` returning a lazy.nvim spec.
+**Updating:** Neovim itself comes from dnf. Plugins, treesitter parsers and Mason tools (LSPs,
+formatters, linters) update every Monday with `update-all` (`install.sh --update`), or by hand with
+`:Lazy update` and `:Mason`. The new `lazy-lock.json` is left uncommitted in the repo: review it
+(`git diff config/nvim/lazy-lock.json`) and commit it so other machines get the same versions. If an
+update breaks something, `git checkout config/nvim/lazy-lock.json` and `:Lazy restore` go back.
+LSPs and tools are installed by Mason on first launch (`:Mason` to see them).
+
 ## Updates
 
 Everything updates itself once a week, with two systemd timers (they run at the next boot or
@@ -63,7 +126,7 @@ login if the machine was off at that time):
 | Timer | When | What |
 |---|---|---|
 | `weekly-update.timer` (system, root) | Mondays 10:00 | `dnf upgrade`, system flatpaks and Ollama (`update-ollama`) |
-| `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), tmux and yazi plugins, tldr pages |
+| `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), Neovim plugins, parsers and Mason tools, tmux and yazi plugins, tldr pages |
 
 `update-all` runs the same by hand (system part included, with sudo); `update-all --user` only
 the user part. A desktop notification appears if a step fails or a reboot is needed; nothing
@@ -128,6 +191,7 @@ root without reading it, or hand-added `PATH` lines in `.bashrc`.
 | `system/update-ollama` | copied to `/usr/local/sbin/` (run by the system update) |
 | `config/ghostty/` | `~/.config/ghostty/` (config + `CHEATSHEET.md` for `cheat`) |
 | `config/tmux/tmux.conf` | `~/.config/tmux/` |
+| `config/nvim/` | `~/.config/nvim` (whole directory) |
 | `config/starship.toml` | `~/.config/` |
 | `config/lazygit/`, `config/yazi/`, `config/thefuck/` | `~/.config/…` |
 | `config/btop/` | themes linked; `btop.conf` copied once (btop rewrites it on exit) |

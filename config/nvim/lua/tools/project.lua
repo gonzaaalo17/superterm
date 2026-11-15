@@ -1,0 +1,315 @@
+-- Project-scoped lazydocker / lazysql / dadbod.
+--
+-- Outside Neovim these tools stay global, exactly as in the shell. Inside Neovim they open on
+-- the current project (its git root, or the cwd when there is no repo):
+--
+--   lazydocker  the compose project(s) whose containers were started from inside the project
+--               (from the com.docker.compose.* labels), so a sibling project sharing the folder
+--               (e.g. a sandbox stack) is told apart. Standalone containers, images, volumes and
+--               networks are always global: lazydocker has no way to filter those.
+--   lazysql     <root>/.lazysql.toml if present (lazysql's own format, several connections),
+--               else every *DATABASE_URL / *DB_URL in <root>/.env and .env.local,
+--               else the global connections (~/.config/lazysql/config.toml).
+--   dadbod-ui   the same .env connections, as vim.g.dbs.
+local M = {}
+
+local uv = vim.uv
+
+function M.root()
+  return LazyVim.root.git()
+end
+
+local function float(cmd, cwd)
+  return Snacks.terminal(cmd, {
+    cwd = cwd,
+    -- Esc belongs to the TUI (lazysql/lazydocker use it), not to "leave terminal mode"
+    win = { position = "float", width = 0.9, height = 0.9, border = "rounded", keys = { term_normal = false } },
+  })
+end
+
+-- ── lazydocker ───────────────────────────────────────────────────────────
+
+--- Compose projects with at least one container whose working dir is inside `root`.
+---@return {name:string, files:string[]}[]
+local function compose_projects(root)
+  local fmt = '{{.Label "com.docker.compose.project"}}\t'
+    .. '{{.Label "com.docker.compose.project.working_dir"}}\t'
+    .. '{{.Label "com.docker.compose.project.config_files"}}'
+  local res = vim
+    .system({ "docker", "ps", "-a", "--filter", "label=com.docker.compose.project", "--format", fmt }, { text = true })
+    :wait()
+  if res.code ~= 0 then
+    return {}
+  end
+  local seen, out = {}, {}
+  for line in res.stdout:gmatch("[^\n]+") do
+    local name, wd, files = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
+    if name and name ~= "" and not seen[name] and (wd == root or vim.startswith(wd, root .. "/")) then
+      seen[name] = true
+      out[#out + 1] = { name = name, files = vim.split(files, ",", { trimempty = true }) }
+    end
+  end
+  table.sort(out, function(a, b)
+    return a.name < b.name
+  end)
+  return out
+end
+
+function M.lazydocker()
+  local root = M.root()
+  local projects = compose_projects(root)
+  local function open(p)
+    local cmd = { "lazydocker", "-p", p.name }
+    for _, f in ipairs(p.files) do
+      vim.list_extend(cmd, { "-f", f })
+    end
+    float(cmd, root)
+  end
+  if #projects == 1 then
+    return open(projects[1])
+  elseif #projects > 1 then
+    return vim.ui.select(projects, {
+      prompt = "Compose project",
+      format_item = function(p)
+        return p.name
+      end,
+    }, function(p)
+      if p then
+        open(p)
+      end
+    end)
+  end
+  -- No containers yet: lazydocker still picks up a compose file in the root on its own.
+  float({ "lazydocker" }, root)
+end
+
+function M.lazydocker_global()
+  float({ "lazydocker" }, vim.env.HOME)
+end
+
+-- ── database connections ─────────────────────────────────────────────────
+
+local function read_env(path, vars)
+  local f = io.open(path, "r")
+  if not f then
+    return
+  end
+  for line in f:lines() do
+    line = vim.trim(line):gsub("^export%s+", "")
+    local key, val = line:match("^([%w_%.]+)%s*=%s*(.-)%s*$")
+    if key then
+      -- quoted: take what is between the quotes (a "# comment" may follow);
+      -- unquoted: a " #" starts a comment, a bare # is part of the value (p#ss)
+      local q, inner = val:match("^([\"'])(.-)%1")
+      if q then
+        val = inner
+      else
+        val = val:gsub("%s+#.*$", "")
+      end
+      if q ~= "'" then -- like dotenv: no expansion inside single quotes
+        val = val:gsub("%${([%w_]+)}", function(k)
+          return vars[k] or vim.env[k] or ""
+        end)
+      end
+      vars[key] = val
+    end
+  end
+  f:close()
+end
+
+local providers = {
+  postgres = "postgres",
+  postgresql = "postgres",
+  pg = "postgres",
+  mysql = "mysql",
+  mariadb = "mysql",
+  sqlite = "sqlite3",
+  sqlite3 = "sqlite3",
+  file = "sqlite3",
+  sqlserver = "sqlserver",
+  mssql = "sqlserver",
+}
+
+local default_ports = { postgres = "5432", mysql = "3306", sqlserver = "1433" }
+
+--- Host port a compose service of this project publishes for `port` (e.g. "db", "5432"),
+--- from the running containers. nil if the service is not running or the port not published.
+local function published_port(root, service, port)
+  local res = vim
+    .system({
+      "docker",
+      "ps",
+      "--filter",
+      "label=com.docker.compose.service=" .. service,
+      "--format",
+      '{{.Label "com.docker.compose.project.working_dir"}}\t{{.Ports}}',
+    }, { text = true })
+    :wait()
+  if res.code ~= 0 then
+    return nil
+  end
+  for line in res.stdout:gmatch("[^\n]+") do
+    local wd, ports = line:match("^([^\t]*)\t(.*)$")
+    if wd and (wd == root or vim.startswith(wd, root .. "/")) then
+      for host_port, cport in ports:gmatch(":(%d+)%->(%d+)/tcp") do
+        if cport == port then
+          return host_port
+        end
+      end
+    end
+  end
+end
+
+--- Normalises a URL for lazysql and dadbod. nil if the scheme is not supported.
+--- `note` says what was adapted, for the notification (never the password).
+local function parse_url(url, root)
+  local scheme = url:match("^(%a[%w+.-]*):")
+  if not scheme then
+    return nil
+  end
+  -- SQLAlchemy-style driver suffixes (postgresql+psycopg, sqlite+aiosqlite…) mean nothing here
+  local base = scheme:lower():gsub("%+.*$", "")
+  local provider = providers[base]
+  if not provider then
+    return nil
+  end
+  local rest = url:sub(#scheme + 2) -- everything after "scheme:"
+
+  if provider == "sqlite3" then
+    local path = rest:gsub("%?.*$", "")
+    if path:find(":memory:", 1, true) then
+      return nil
+    end
+    if path:sub(1, 2) == "//" then
+      path = path:sub(3)
+      -- sqlite:///rel.db is relative, sqlite:////abs.db absolute (SQLAlchemy, dj-database-url);
+      -- file:///abs.db is a plain file URI
+      if base ~= "file" and path:sub(1, 1) == "/" then
+        path = path:sub(2)
+      end
+    end
+    if path == "" then
+      return nil
+    end
+    if path:sub(1, 1) ~= "/" then
+      path = vim.fs.normalize(root .. "/" .. path)
+    end
+    -- lazysql only opens file:<path> (sqlite://… fails), dadbod wants sqlite:<path>
+    return { provider = provider, lazysql = "file:" .. path, dadbod = "sqlite:" .. path, note = "" }
+  end
+
+  local notes = {}
+  local local_host = false
+  local auth, tail = rest:match("^//([^/?]*)(.*)$") -- no # stop: unencoded passwords use it
+  if auth and auth ~= "" then
+    local userinfo, hostport = auth:match("^(.*@)(.*)$") -- last @: passwords may contain @
+    userinfo, hostport = userinfo or "", hostport or auth
+    local host, port = hostport:match("^(.-):(%d+)$")
+    host, port = host or hostport, port or default_ports[provider]
+    -- A compose service name (`db`) only resolves inside the compose network: use the
+    -- port it publishes on this machine instead.
+    if host ~= "" and not host:find("[.:%[]") and host ~= "localhost" then
+      local hp = published_port(root, host, port)
+      if hp then
+        notes[#notes + 1] = ("%s:%s → 127.0.0.1:%s (compose)"):format(host, port, hp)
+        host, port = "127.0.0.1", hp
+      else
+        notes[#notes + 1] = ("host %s: not a running compose service with a published port"):format(host)
+      end
+    end
+    local_host = host == "127.0.0.1" or host == "localhost" or host == "[::1]"
+    url = ("%s://%s%s:%s%s"):format(base, userinfo, host, port, tail)
+  else
+    -- no host (postgres:///db): the driver's default, localhost
+    local_host = true
+    url = base .. ":" .. rest
+  end
+  -- lazysql's Postgres driver requires SSL unless told otherwise; local servers rarely have it
+  if provider == "postgres" and local_host and not url:find("sslmode=", 1, true) then
+    url = url .. (url:find("?", 1, true) and "&" or "?") .. "sslmode=disable"
+  end
+  return { provider = provider, lazysql = url, dadbod = url, note = table.concat(notes, "; ") }
+end
+
+--- Connections declared in the project's .env files.
+---@return {name:string, provider:string, lazysql:string, dadbod:string}[]
+function M.env_connections(root)
+  local vars = {}
+  read_env(root .. "/.env", vars)
+  read_env(root .. "/.env.local", vars)
+  local project, out = vim.fs.basename(root), {}
+  for key, val in pairs(vars) do
+    if val ~= "" and (key:match("DATABASE_URL$") or key:match("^DB_URL$") or key:match("_DB_URL$")) then
+      local c = parse_url(val, root)
+      if c then
+        c.name = project .. " · " .. key
+        out[#out + 1] = c
+      end
+    end
+  end
+  table.sort(out, function(a, b)
+    return a.name < b.name
+  end)
+  return out
+end
+
+local function toml_str(s)
+  return '"' .. s:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+end
+
+function M.lazysql()
+  local root = M.root()
+  local own = root .. "/.lazysql.toml"
+  if uv.fs_stat(own) then
+    return float({ "lazysql", "-no-telemetry", "-config", own }, root)
+  end
+  local conns = M.env_connections(root)
+  if #conns == 0 then
+    vim.notify(
+      "No database in .env or .lazysql.toml: opening the global connections",
+      vim.log.levels.INFO,
+      { title = "lazysql" }
+    )
+    return M.lazysql_global()
+  end
+  local notes = {}
+  for _, c in ipairs(conns) do
+    if c.note ~= "" then
+      notes[#notes + 1] = "- " .. c.name .. ": " .. c.note
+    end
+  end
+  if #notes > 0 then
+    vim.notify(table.concat(notes, "\n"), vim.log.levels.INFO, { title = "lazysql" })
+  end
+  -- A throwaway config in Neovim's private temp dir (0700, wiped when Neovim exits), so
+  -- passwords stay off the command line. The wrapper also removes it as soon as lazysql ends.
+  local cfg = vim.fn.tempname() .. ".toml"
+  local lines = {}
+  for _, c in ipairs(conns) do
+    vim.list_extend(lines, {
+      "[[database]]",
+      "Name = " .. toml_str(c.name),
+      "Provider = " .. toml_str(c.provider),
+      "URL = " .. toml_str(c.lazysql),
+      "",
+    })
+  end
+  vim.fn.writefile(lines, cfg)
+  uv.fs_chmod(cfg, tonumber("600", 8))
+  float({ "sh", "-c", 'lazysql -no-telemetry -config "$1"; rm -f "$1"', "lazysql", cfg }, root)
+end
+
+function M.lazysql_global()
+  float({ "lazysql", "-no-telemetry" }, vim.env.HOME)
+end
+
+--- dadbod-ui: the project's .env connections.
+function M.set_dbs()
+  local dbs = {}
+  for _, c in ipairs(M.env_connections(M.root())) do
+    dbs[#dbs + 1] = { name = c.name, url = c.dadbod }
+  end
+  vim.g.dbs = dbs
+end
+
+return M

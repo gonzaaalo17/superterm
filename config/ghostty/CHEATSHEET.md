@@ -122,6 +122,31 @@
 | ` 1` | Last command's exit code (when it failed) |
 | `❯` green / red | Last command succeeded / failed |
 
+## Neovim (LazyVim) · leader `Space`
+LazyVim's own keys apply as documented (https://www.lazyvim.org/keymaps). Press `Space` and wait: which-key lists the rest.
+
+| Key | What it does |
+|---|---|
+| `Space Space` / `Space /` | Find file / grep in the project |
+| `Space e` | File explorer |
+| `Space fp` / `Space fz` | Open a project: git repos in ~/Projects + recent / any folder zoxide knows |
+| `Space bd` / `Space wd` | Close the buffer (the window stays) / close the window (the split) |
+| `Ctrl+w o` | Keep only the current window |
+| `Space gg` | lazygit on the project (`e` on a file opens it in this nvim) |
+| `Space od` / `Space oD` | lazydocker: this project's compose stack / everything |
+| `Space os` / `Space oS` | lazysql: this project's databases / the global connections |
+| `Space D` | dadbod-ui: SQL editor with table completion, project databases |
+| `Space l` / `:LazyExtras` | Plugins / add a language (`x` to enable) |
+| `Tab` · `Alt+a` · `Alt+]`/`Alt+[` · `Alt+e` | AI suggestion: accept · one line · next/prev · dismiss |
+| `Space aa` / `Space ai` / `Space ap` | Local AI chat / inline edit / actions |
+| `Space am` · `Space at` | Pick AI models (completion, chat) · toggle completion |
+| `Ctrl+h/j/k/l` · arrows | Move between windows (Ctrl crosses into tmux panes) |
+| `U` · `ñ` · `´` | Redo · toggle case · search word under cursor |
+| `Enter` / `Alt+Enter` | Blank line(s) below / above |
+
+Project databases come from `.lazysql.toml` in the project root (lazysql's format) or, if absent,
+every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`.
+
 ## ai — local LLM (Ollama, nothing leaves the machine)
 | Command | What it does |
 |---|---|
@@ -153,7 +178,7 @@
 | `mkcd dir` | Create a directory and cd into it |
 | `extract file` | Unpack any archive format |
 | `mvall` / `cpall` / `rmgroup` | Your existing functions |
-| `lg` / `lzd` | lazygit / lazydocker |
+| `lg` / `lzd` / `lsql` | lazygit / lazydocker / lazysql (telemetry off) |
 | `top` | btop |
 | `dust [dir]` | Disk usage as a visual tree (`dust -d 2`, `dust -n 20`); `du` is still plain du |
 | `duf` | Free space per disk, as a table; `df` is still plain df |
@@ -230,6 +255,7 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 | Tool | What for |
 |---|---|
 | `docker` · `lazydocker` (`lzd`) | Containers / their TUI |
+| `lazysql` (`lsql`) | Databases TUI (Postgres, MySQL, SQLite, SQL Server) |
 | `podman` | Rootless Docker alternative |
 | `toolbox` | Throwaway Fedora containers to try things |
 
@@ -260,4 +286,5 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 - **lazygit**: `space` stage/unstage · `c` commit · `P` push · `p` pull · `|` switch diff renderer · `?` help
 - **yazi** (Markdown files are previewed rendered): `Enter` / `l` go into a folder or open a file · `h/j/k` move · `space` select · `y`/`x`/`p` copy/cut/paste · `a` create · `r` rename · `d` trash · `/` search · `z` jump with zoxide · `q` quit
 - **lazydocker**: `[`/`]` tabs · `l` logs · `s` stop · `r` restart · `d` remove
+- **lazysql**: `Enter` connect · `H`/`L` tree / table · `Ctrl+E` SQL editor · `Backspace` back to connections · `?` help · `q` quit
 - **btop**: `h/j/k/l` move · `f` filter · `k` kill process · `m` menu

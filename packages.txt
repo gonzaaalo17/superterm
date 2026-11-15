@@ -24,6 +24,11 @@ fastfetch
 # Terminal, multiplexer, editor
 tmux
 neovim
+# Neovim (LazyVim): parsers are compiled locally, Mason installs LSPs with npm/python
+tree-sitter-cli
+gcc
+make
+nodejs-npm
 cascadia-code-fonts
 # Plumbing used by the setup
 git
