@@ -203,6 +203,25 @@ install_links() {
 }
 
 # ── 4. Plugins and caches ───────────────────────────────────────────────
+# After a successful plugin update: commit the new lazy-lock.json (only that file, whatever
+# else is staged), so every update is a point to go back to. Never pushed: that stays by hand.
+# Skipped when the repo is mid-merge/rebase or on a detached HEAD.
+commit_lockfile() {
+    local lock=config/nvim/lazy-lock.json g=(git -C "$DOTFILES") gitdir names
+    gitdir="$("${g[@]}" rev-parse --absolute-git-dir)"
+    if ! "${g[@]}" symbolic-ref -q HEAD >/dev/null || [ -e "$gitdir/MERGE_HEAD" ] \
+        || [ -d "$gitdir/rebase-merge" ] || [ -d "$gitdir/rebase-apply" ]; then
+        ok "nvim updated: lazy-lock.json changed, not committed (repo busy: merge, rebase or detached HEAD)"
+        return 0
+    fi
+    names="$("${g[@]}" diff -U0 -- "$lock" | sed -nE 's/^\+  "([^"]+)".*/\1/p' | paste -sd, - | sed 's/,/, /g')"
+    if "${g[@]}" commit -q -m "nvim: update plugins" -m "Updated by update-all: ${names:-lazy-lock.json}" -- "$lock"; then
+        ok "nvim updated and committed: ${names:-lazy-lock.json} (undo: git revert HEAD, then :Lazy restore)"
+    else
+        warn "nvim updated, but committing lazy-lock.json failed: commit it by hand"
+    fi
+}
+
 install_plugins() {
     say "Plugins"
     local tpm="$HOME/.config/tmux/plugins/tpm"
@@ -211,7 +230,7 @@ install_plugins() {
     if command -v ya >/dev/null; then ya pkg install >/dev/null && ok "yazi plugins and flavors"; fi
     # Neovim plugins. Install: the exact versions in config/nvim/lazy-lock.json.
     # --update (the weekly update-all): latest plugins, treesitter parsers and Mason tools;
-    # the new lazy-lock.json is left in the repo to review and commit (see lua/tools/update.lua).
+    # the new lazy-lock.json is committed (not pushed). See lua/tools/update.lua.
     if command -v nvim >/dev/null; then
         if [ $UPDATE = 1 ]; then
             local log; log="$(mktemp)"
@@ -220,11 +239,11 @@ install_plugins() {
                 if git -C "$DOTFILES" diff --quiet -- config/nvim/lazy-lock.json; then
                     ok "nvim plugins, parsers and Mason tools up to date"
                 else
-                    ok "nvim updated: lazy-lock.json changed, review and commit it (git diff config/nvim/lazy-lock.json)"
+                    commit_lockfile
                 fi
             else
                 grep -E '^  (failed|mason):' "$log" >&2 || tail -n 20 "$log" >&2
-                warn "nvim update failed (to roll back: git checkout config/nvim/lazy-lock.json, then :Lazy restore)"
+                warn "nvim update failed, lazy-lock.json not committed (to roll back: git checkout config/nvim/lazy-lock.json, then :Lazy restore)"
                 FAILED=1
             fi
             rm -f "$log"

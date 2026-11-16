@@ -113,9 +113,9 @@ formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.j
 **Your own plugins:** a new file in `lua/plugins/` returning a lazy.nvim spec.
 **Updating:** Neovim itself comes from dnf. Plugins, treesitter parsers and Mason tools (LSPs,
 formatters, linters) update every Monday with `update-all` (`install.sh --update`), or by hand with
-`:Lazy update` and `:Mason`. The new `lazy-lock.json` is left uncommitted in the repo: review it
-(`git diff config/nvim/lazy-lock.json`) and commit it so other machines get the same versions. If an
-update breaks something, `git checkout config/nvim/lazy-lock.json` and `:Lazy restore` go back.
+`:Lazy update` and `:Mason`. After a successful update the new `lazy-lock.json` is committed on its
+own ("nvim: update plugins", listing them), never pushed: push when you want other machines to get
+the same versions. If an update breaks something, `git revert` that commit and run `:Lazy restore`.
 LSPs and tools are installed by Mason on first launch (`:Mason` to see them).
 
 ## Updates

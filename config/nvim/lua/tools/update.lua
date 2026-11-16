@@ -3,8 +3,8 @@
 --
 --   nvim --headless "+lua require('tools.update').run()"
 --
---   1. plugins       :Lazy update — rewrites lazy-lock.json in the repo. Review and commit it;
---                    if an update breaks something: git checkout the lockfile, :Lazy restore.
+--   1. plugins       :Lazy update — rewrites lazy-lock.json in the repo; install.sh commits it.
+--                    If an update breaks something: git revert that commit, :Lazy restore.
 --   2. parsers       treesitter parsers, to the revisions the updated nvim-treesitter pins
 --   3. Mason tools   LSPs, formatters, linters with a newer version in the registry
 --
