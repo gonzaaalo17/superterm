@@ -36,6 +36,20 @@ local function parsers()
   if not ok then
     return
   end
+  -- A parser whose install was interrupted has its .so but no revision file, and makes
+  -- update() fail for every parser: reinstall those first.
+  local site = vim.fn.stdpath("data") .. "/site"
+  local broken = {}
+  for _, so in ipairs(vim.fn.glob(site .. "/parser/*.so", false, true)) do
+    local lang = vim.fn.fnamemodify(so, ":t:r")
+    if not vim.uv.fs_stat(("%s/parser-info/%s.revision"):format(site, lang)) then
+      broken[#broken + 1] = lang
+    end
+  end
+  if #broken > 0 then
+    log("  reinstalling parsers without revision info: " .. table.concat(broken, ", "))
+    ts.install(broken, { force = true }):wait(600000)
+  end
   local done = ts.update():wait(600000)
   if done == false then
     failed[#failed + 1] = "treesitter parsers"
