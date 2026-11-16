@@ -108,13 +108,36 @@ return {
               end,
             },
             keep_alive = { default = "15m" },
+            -- Low temperature: steadier code and tool calls (qwen3-coder at its default 0.7
+            -- sometimes writes a tool call as text, which Ollama then fails to parse).
+            temperature = { default = 0.2 },
           },
         })
       end
+      -- Read-only tools run without asking inside the project; outside it (~/.ssh, other
+      -- repos…) they ask. Edits are shown as a diff to accept, commands always ask.
+      local function outside_cwd(tool)
+        local args = tool.args or {}
+        local path = args.filepath or args.path or args.directory
+        if not path or path == "" then
+          return false
+        end
+        local abs = vim.fs.normalize(vim.fs.abspath(path))
+        local cwd = vim.fs.normalize(vim.uv.cwd())
+        return not (abs == cwd or vim.startswith(abs, cwd .. "/"))
+      end
+      local read_only = { opts = { require_approval_before = outside_cwd } }
       return {
         adapters = { http = { opts = { show_presets = false }, ollama = ollama } },
         interactions = {
-          chat = { adapter = "ollama" },
+          chat = {
+            adapter = "ollama",
+            tools = {
+              read_file = read_only,
+              grep_search = read_only,
+              file_search = read_only,
+            },
+          },
           inline = { adapter = "ollama" },
           cmd = { adapter = "ollama" },
           background = { adapter = "ollama" },
@@ -131,6 +154,16 @@ return {
         local path = type(f) == "table" and f.path or f
         return not vim.startswith(path, "~/")
       end, rules.files)
+      -- @{agent}: local models call tools reliably one at a time with nothing written before
+      -- the call; several calls in one reply, or text first, is when Ollama's parser drops one
+      -- and the agent loop stops halfway.
+      local agent = require("codecompanion.config").interactions.chat.tools.groups.agent
+      local prompt = agent.system_prompt
+      agent.system_prompt = function(...)
+        return prompt(...):gsub("Prefer calling multiple tools in parallel when possible%.\n", "")
+          .. "\n<localModel>\nCall exactly one tool per response and wait for its result. "
+          .. "Do not write anything before a tool call; explain after the results.\n</localModel>"
+      end
     end,
     keys = {
       { "<leader>aa", "<cmd>CodeCompanionChat Toggle<cr>", mode = { "n", "v" }, desc = "AI chat" },
