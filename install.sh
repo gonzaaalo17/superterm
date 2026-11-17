@@ -6,6 +6,7 @@
 #   ./install.sh --no-packages skip dnf (binaries, plugins and links only)
 #   ./install.sh --update      also re-download the GitHub binaries if already installed and
 #                              update Neovim's plugins, parsers and Mason tools
+#   ./install.sh --system-files only copy the root-owned files in system/ that changed (sudo)
 #
 # Safe to run again: existing files are moved to ~/.dotfiles-backup/<timestamp>/ before
 # being replaced, and links that already point here are left alone.
@@ -15,7 +16,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$HOME/.local/bin"
 BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-DO_PACKAGES=1 DO_BINARIES=1 DO_PLUGINS=1 UPDATE=0 FAILED=0
+DO_PACKAGES=1 DO_BINARIES=1 DO_PLUGINS=1 UPDATE=0 FAILED=0 SYSTEM_FILES_ONLY=0
 TMP_DIRS=()
 trap '[ ${#TMP_DIRS[@]} -eq 0 ] || rm -rf "${TMP_DIRS[@]}"' EXIT
 
@@ -24,7 +25,8 @@ for arg in "$@"; do
         --links) DO_PACKAGES=0 DO_BINARIES=0 DO_PLUGINS=0 ;;
         --no-packages) DO_PACKAGES=0 ;;
         --update) UPDATE=1 ;;
-        -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+        --system-files) SYSTEM_FILES_ONLY=1 ;;
+        -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
     esac
 done
@@ -45,19 +47,27 @@ install_packages() {
     mapfile -t pkgs < <(grep -vE '^\s*(#|$)' "$DOTFILES/packages.txt")
     sudo dnf install -y "${pkgs[@]}"
     ok "${#pkgs[@]} packages"
+    install_system_files
+}
 
-    # Weekly unattended system update. Copied, not linked: it runs as root, so it
-    # must not point at files the user can edit.
-    local u changed=0
+# Weekly unattended system update. Copied, not linked: it runs as root, so it must not
+# point at files the user can edit. Only what differs from the repo is copied, so this
+# asks for sudo only when something actually changed.
+install_system_files() {
+    say "System files (root-owned copies of system/)"
+    local u changed=0 copied=()
     for u in weekly-update.service weekly-update.timer; do
         if ! cmp -s "$DOTFILES/system/$u" "/etc/systemd/system/$u"; then
-            sudo install -m644 "$DOTFILES/system/$u" "/etc/systemd/system/$u"; changed=1
+            sudo install -m644 "$DOTFILES/system/$u" "/etc/systemd/system/$u"; changed=1; copied+=("$u")
         fi
     done
-    cmp -s "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama \
-        || sudo install -m755 "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama
-    [ $changed = 1 ] && sudo systemctl daemon-reload
+    if ! cmp -s "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama; then
+        sudo install -m755 "$DOTFILES/system/update-ollama" /usr/local/sbin/update-ollama
+        copied+=(update-ollama)
+    fi
+    if [ $changed = 1 ]; then sudo systemctl daemon-reload; fi
     systemctl is-enabled -q weekly-update.timer 2>/dev/null || sudo systemctl enable --now weekly-update.timer
+    if [ ${#copied[@]} -gt 0 ]; then ok "updated: ${copied[*]}"; else ok "already up to date"; fi
     ok "weekly-update.timer (system: dnf, flatpak, Ollama; Mondays)"
 }
 
@@ -254,6 +264,7 @@ install_plugins() {
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
 
+if [ $SYSTEM_FILES_ONLY = 1 ]; then install_system_files; exit 0; fi
 [ $DO_PACKAGES = 1 ] && install_packages
 [ $DO_BINARIES = 1 ] && install_binaries
 install_links

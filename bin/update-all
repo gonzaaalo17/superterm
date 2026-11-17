@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # update-all: bring everything on this machine up to date.
 #
-#   update-all          system (dnf, flatpak, Ollama; asks for sudo) and then the user part
+#   update-all          system (dnf, flatpak, Ollama; asks for sudo) and then the user part;
+#                       also copies any changed root-owned files from the repo's system/
 #   update-all --user   only the user part: what the weekly user timer runs
 #
 # The system part also runs on its own every week as root (weekly-update.timer),
@@ -16,7 +17,7 @@ USER_ONLY=0
 case "${1:-}" in
     --user) USER_ONLY=1 ;;
     "") ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
 esac
 
@@ -31,6 +32,9 @@ has() { command -v "$1" >/dev/null; }
 # ── System (only when run by hand; the root timer covers it otherwise) ──
 if [ $USER_ONLY = 0 ]; then
     step "dnf"           sudo dnf upgrade --refresh -y
+    # The root timer runs the copies in /etc and /usr/local/sbin, which the user part
+    # (install.sh --no-packages) never touches: refresh them here, before Ollama uses one.
+    step "superterm: system files" "$DOTFILES/install.sh" --system-files
     has flatpak && step "flatpak (system)" sudo flatpak update -y --noninteractive
     [ -x /usr/local/sbin/update-ollama ] && step "ollama" sudo /usr/local/sbin/update-ollama
 fi

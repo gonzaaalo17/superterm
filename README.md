@@ -129,7 +129,9 @@ login if the machine was off at that time):
 | `update-all.timer` (user) | Mondays 10:30 | user flatpaks, `uv` Pythons and tools, the GitHub binaries (`install.sh --update`), Neovim plugins, parsers and Mason tools, tmux and yazi plugins, tldr pages |
 
 `update-all` runs the same by hand (system part included, with sudo); `update-all --user` only
-the user part. A desktop notification appears if a step fails or a reboot is needed; nothing
+the user part. Run by hand it also copies the root-owned files in `system/` (the timer units and
+`update-ollama`) when they differ from the repo, so a fix to them reaches the weekly timer; the
+timers alone never do that (`./install.sh --system-files` does just that step). A desktop notification appears if a step fails or a reboot is needed; nothing
 reboots on its own.
 
 It also warns about orphaned packages: installed, but no enabled repo offers them any more, so
