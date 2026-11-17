@@ -28,7 +28,7 @@ neovim
 tree-sitter-cli
 gcc
 make
-nodejs-npm
+nodejs22-npm
 cascadia-code-fonts
 # Plumbing used by the setup
 git

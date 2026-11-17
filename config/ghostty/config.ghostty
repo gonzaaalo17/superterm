@@ -18,7 +18,7 @@ window-padding-y = 8
 window-padding-balance = true
 window-padding-color = extend
 background-opacity = 0.85
-background-blur = true
+background-blur = false
 
 # Pure black titlebar (window-theme = ghostty lets us colour it)
 window-theme = ghostty
