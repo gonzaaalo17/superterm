@@ -7,6 +7,8 @@
 # anything, and puts the previous version back if the new one does not start.
 
 set -euo pipefail
+# systemd services run without $HOME, and `ollama --version` panics without it (exit 2).
+export HOME="${HOME:-/root}"
 
 PREFIX=/usr/local
 ASSET=ollama-linux-amd64.tar.zst
