@@ -33,7 +33,7 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
    `git/delta.gitconfig`; the rest of it (name, email, credentials) is left alone. The weekly
    user update timer is enabled here.
 4. **Plugins** — tmux plugins (TPM), yazi plugins and flavors, Neovim plugins (the versions in
-   `lazy-lock.json`), tldr pages.
+   `lazy-lock.json`) and its Spanish spell dictionary, tldr pages.
 
 It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`, `--update`
 (re-download the binaries; latest Neovim plugins, parsers and Mason tools).
@@ -98,8 +98,13 @@ it holds passwords. lazysql is always run with `-no-telemetry`, also via the she
 - Chat and inline edits (CodeCompanion): `Space aa` chat, `Space ai` inline (also on a selection),
   `Space ap` actions, `Space ac` send the selection to the chat. Answers in Spanish; it reads the
   project's rule files (`AGENTS.md`, `CLAUDE.md`…), not `~/.claude/CLAUDE.md`.
+- Agent mode: start a chat message with `@{agent}` and it reads and searches the project (no
+  prompts inside it, a prompt for anything outside), edits files (each edit shown as a diff to
+  accept) and runs commands (always asks). It needs a model with tool calling (`qwen3-coder:30b`)
+  and room for its tools: `"chat_ctx": 32768`. Local models sometimes stop halfway through a
+  task; "continúa" picks it up.
 - Each has its own model, per machine, in `~/.config/ai/config.json` (the `ai` command's file,
-  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 16384}`. `Space am` /
+  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 32768}`. `Space am` /
   `:AIModel` picks them from the installed models; completion switches at once, chat from the next
   conversation. On a machine with more VRAM, just point them at bigger models.
 
@@ -111,6 +116,9 @@ time. `qwen2.5-coder:7b` as chat model runs at ~74 tok/s and fits next to it: no
 **Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
 formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.
 **Your own plugins:** a new file in `lua/plugins/` returning a lazy.nvim spec.
+**Spelling:** English and Spanish (`spelllang=en,es`), on in markdown, text and git commits as
+LazyVim sets it; `Space us` toggles it elsewhere. `install.sh` downloads the Spanish dictionary
+(Vim's own, pinned by sha256) into `~/.local/share/nvim/site/spell`.
 **Updating:** Neovim itself comes from dnf. Plugins, treesitter parsers and Mason tools (LSPs,
 formatters, linters) update every Monday with `update-all` (`install.sh --update`), or by hand with
 `:Lazy update` and `:Mason`. After a successful update the new `lazy-lock.json` is committed on its
