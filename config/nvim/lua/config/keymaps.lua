@@ -38,3 +38,9 @@ local function blank_lines(offset)
 end
 map("n", "<CR>", blank_lines(0), { desc = "Blank line(s) below" })
 map("n", "<M-CR>", blank_lines(-1), { desc = "Blank line(s) above" })
+
+-- Terminal: Ctrl+ñ does what LazyVim's Ctrl+/ does. On a Spanish keyboard "/" is Shift+7,
+-- so Ctrl+/ may not reach Neovim; ñ is a key of its own (needs tmux extended-keys, on here).
+map({ "n", "t" }, "<C-ñ>", function()
+  Snacks.terminal.focus(nil, { cwd = LazyVim.root() })
+end, { desc = "Terminal (Root Dir)" })
