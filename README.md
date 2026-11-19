@@ -59,6 +59,48 @@ git push
 
 On another machine: `git pull` (and `./install.sh --links` if a new file was added).
 
+## Workspace: `dev`
+
+`dev` opens a project as a tmux session, or goes back to it if it is already open:
+
+| Window | What |
+|---|---|
+| 1 `code` | nvim |
+| 2 `agent` | opencode, on the project's last conversation (`--continue`) |
+| 3 `shell` | bash |
+
+- **Project:** the directory given (`dev ~/Projects/foo`) or the current one; inside a git repo, the
+  repo's root, so `dev` from any subfolder lands in the same session. In `~` it offers the folders
+  of `~/Projects` (fzf); `/` is refused. The session is named after the folder (`parent-folder` if
+  another project already has that name).
+- **Leaving** (closing Ghostty, `prefix d`) keeps everything running, unsaved buffers and the
+  agent's work included; `dev` there brings it back as it was. `dev -k` closes it (the current
+  one inside a workspace). Open sessions cost RAM (nvim, its LSPs, opencode), almost no CPU; the
+  GPU model is Ollama's, unloaded after a few idle minutes whatever is open.
+- **After a reboot** tmux-continuum rebuilds them: windows in their folders, nvim with its files,
+  opencode on its last conversation (it keeps them on disk). Unsaved changes and running servers
+  are gone.
+- **The agent floating:** `prefix a` shows opencode over whatever window you are in; `prefix a`
+  again hides it. It is the same opencode as window 2 (a grouped session shows it without moving
+  the main view). Hiding it makes nvim reload the files the agent changed.
+- **nvim → agent:** `Space ao` types `@file` (with `lines a-b` on a selection) into opencode's
+  prompt and floats it; the file is saved first, since the agent reads it from disk.
+- **agent → nvim:** when you say "this file", "the selection", "these errors", opencode runs
+  `nvim-context` (allowed without asking): it asks this session's nvim, through its server socket,
+  for the current file, cursor, last selection, diagnostics and unsaved buffers.
+
+**opencode** (`config/opencode/`, installed by `install.sh`, checksum-verified): local only. Only the
+Ollama provider is enabled (`qwen3.6-128k`); sharing, update checks, the models.dev catalog, LSP
+downloads and Claude Code's `~/.claude` files are off (`home/.bashrc.d/10-env.sh`). It asks before
+every edit (diff), every command but `git status/diff/log`, `ls` and `nvim-context`, and anything
+outside the project. Its rules, shared with the nvim chat, are `config/agents/AGENTS.md`: read-only
+until asked, a plan and your confirmation before any change, the git rules, and answers in the
+language you write in. The local model does not always present the plan first; the permission
+prompts are the real gate. Theme `superterm`: Catppuccin on the terminal's own background.
+`update-all` checks each new opencode release against this config before installing it; if it
+no longer applies (a renamed or dropped setting), the release is not installed and a desktop
+notification says so, so the config can be adapted first.
+
 ## Neovim
 
 `config/nvim/` is a Neovim config built on [LazyVim](https://www.lazyvim.org): LazyVim's defaults
@@ -198,13 +240,15 @@ root without reading it, or hand-added `PATH` lines in `.bashrc`.
 |---|---|
 | `home/.bashrc`, `.bash_aliases`, `.bash_functs` | `~/` |
 | `home/.bashrc.d/10-env.sh`, `20-tools.sh` | `~/.bashrc.d/` (environment, tool init) |
-| `bin/ai`, `bin/update-all` | `~/.local/bin/` |
+| `bin/ai`, `bin/update-all`, `bin/dev`, `bin/nvim-context` | `~/.local/bin/` |
 | `config/systemd/user/update-all.*` | `~/.config/systemd/user/` (weekly user updates) |
 | `system/weekly-update.*` | copied to `/etc/systemd/system/` (weekly system update, as root) |
 | `system/update-ollama` | copied to `/usr/local/sbin/` (run by the system update) |
 | `config/ghostty/` | `~/.config/ghostty/` (config + `CHEATSHEET.md` for `cheat`) |
 | `config/tmux/tmux.conf` | `~/.config/tmux/` |
 | `config/nvim/` | `~/.config/nvim` (whole directory) |
+| `config/opencode/`, `config/agents/AGENTS.md` | `~/.config/opencode/` (config, theme, the agents' rules) |
+| `config/ollama/` | Modelfiles `install.sh` creates in Ollama (`qwen3.6-128k`) |
 | `config/starship.toml` | `~/.config/` |
 | `config/lazygit/`, `config/yazi/`, `config/thefuck/` | `~/.config/…` |
 | `config/btop/` | themes linked; `btop.conf` copied once (btop rewrites it on exit) |

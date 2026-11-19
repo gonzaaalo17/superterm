@@ -17,6 +17,13 @@ follows this protocol, even when the user asked for that exact change:
 
 Never change anything the user did not ask for.
 
+## What the user sees in Neovim
+In a `dev` workspace the user edits in Neovim, in another tmux window. When they refer to "this
+file", "here", "this function", "the selection", "these errors" or similar without naming it, run
+`nvim-context` first (it is installed; run it directly, no need to check): it prints their current file, cursor line, last selection, diagnostics and
+unsaved buffers. Files listed as unsaved differ on disk from what the user sees: ask them to save
+before you edit those.
+
 ## Language
 Reply in the language of the user's last message.
 

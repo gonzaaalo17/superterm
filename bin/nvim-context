@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# nvim-context: what the user is looking at in Neovim — current file, cursor, last selection,
+# diagnostics, unsaved buffers — for an agent (opencode) in another window of the same tmux
+# session. Read-only. See config/nvim/lua/tools/context.lua.
+#
+#   nvim-context                      print it (the nvim of the most recently used window)
+#   nvim-context --checktime SESSION  make every nvim of SESSION reload files changed on disk
+#
+# Each nvim listens on $XDG_RUNTIME_DIR/nvim.<pid>.0 by default; the one that belongs to the
+# session is found by walking up from its pid to one of the session's panes.
+set -euo pipefail
+
+say() { echo "$*"; }   # to stdout: an agent reads it as the command's answer
+
+panes_of() { # session -> "rank pane_pid" lines, the most recently active window first
+    tmux list-panes -s -t "=$1" -F '#{window_activity} #{pane_pid}' 2>/dev/null \
+        | sort -rn | awk '{print NR, $2}'
+}
+
+sockets_of() { # session -> its nvim sockets, the most recently active window first
+    local -A rank=()
+    local r p
+    while read -r r p; do rank[$p]=$r; done < <(panes_of "$1")
+    [ ${#rank[@]} -gt 0 ] || return 0
+    local sock pid best
+    for sock in "${XDG_RUNTIME_DIR:-/run/user/$UID}"/nvim.*.0; do
+        [ -S "$sock" ] || continue
+        pid=${sock##*/nvim.}; pid=${pid%.0}
+        best=""
+        while [[ $pid =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ]; do
+            if [ -n "${rank[$pid]:-}" ]; then best=${rank[$pid]}; break; fi
+            pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ') || break
+        done
+        [ -n "$best" ] && echo "$best $sock"
+    done | sort -n | cut -d' ' -f2-
+}
+
+remote() { # sock lua-expression
+    # stdin from /dev/null: with a terminal on stdin, nvim starts its UI instead of just answering
+    timeout 5 nvim --server "$1" --remote-expr "luaeval('$2')" </dev/null 2>/dev/null
+}
+
+if [ "${1:-}" = --checktime ]; then
+    [ -n "${2:-}" ] || { echo "usage: nvim-context --checktime SESSION" >&2; exit 2; }
+    while read -r sock; do
+        [ -n "$sock" ] && remote "$sock" 'require("tools.context").checktime()' >/dev/null || true
+    done < <(sockets_of "$2")
+    exit 0
+fi
+
+if [ -z "${TMUX:-}" ]; then
+    say "nvim-context: not running inside tmux, so there is no Neovim session to read."
+    exit 1
+fi
+session=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} '#{session_name}')
+sock=$(sockets_of "$session" | head -1)
+if [ -z "$sock" ]; then
+    say "No Neovim is open in this tmux session ($session)."
+    exit 1
+fi
+if ! remote "$sock" 'require("tools.context").get()'; then
+    say "Neovim did not answer (busy, or waiting at a prompt). Try again in a moment."
+    exit 1
+fi
+echo

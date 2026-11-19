@@ -232,6 +232,8 @@ install_links() {
     link home/.bashrc.d/20-tools.sh "$HOME/.bashrc.d/20-tools.sh"
     link bin/ai                     "$BIN/ai"
     link bin/update-all             "$BIN/update-all"
+    link bin/dev                    "$BIN/dev"
+    link bin/nvim-context           "$BIN/nvim-context"
     link config/systemd/user/update-all.service "$HOME/.config/systemd/user/update-all.service"
     link config/systemd/user/update-all.timer   "$HOME/.config/systemd/user/update-all.timer"
     link config/ghostty/config.ghostty "$HOME/.config/ghostty/config.ghostty"

@@ -88,6 +88,18 @@
 | `prefix r` | Reload tmux.conf |
 | `prefix I` / `U` | Install / update plugins |
 | `prefix Ctrl+s` / `Ctrl+r` | Save / restore sessions (also automatic every 15 min) |
+| `prefix a` | The project's agent (opencode) floating: show / hide |
+
+## Workspace · `dev`
+| Command / key | What it does |
+|---|---|
+| `dev` · `dev <dir>` | Open the project (current dir / given; git root) or go back to it: 1 nvim · 2 opencode · 3 shell |
+| `dev` in `~` | Pick a project of ~/Projects (fzf) |
+| `dev -k` · `dev -k <dir>` | Close the workspace (current / of that dir) |
+| `prefix a` | opencode floating over the current window; again to hide (nvim reloads changed files) |
+| `Space ao` (nvim) | Send the file / selected lines to opencode (`@file lines a-b`) and float it |
+| "este archivo", "lo seleccionado"… | opencode runs `nvim-context`: your file, cursor, selection, errors, unsaved buffers |
+| `Tab` (opencode) · `ctrl+x m` · `ctrl+p` | Switch agent (build / plan) · model · command palette |
 
 ## Shell (bash + ble.sh)
 | Key | Action |
@@ -139,6 +151,7 @@ LazyVim's own keys apply as documented (https://www.lazyvim.org/keymaps). Press 
 | `Space l` / `:LazyExtras` | Plugins / add a language (`x` to enable) |
 | `Tab` · `Alt+a` · `Alt+]`/`Alt+[` · `Alt+e` | AI suggestion: accept · one line · next/prev · dismiss |
 | `Space aa` / `Space ai` / `Space ap` | Local AI chat / inline edit / actions |
+| `Space ao` | Send the file / selection to the agent (opencode) and float it |
 | `Space am` · `Space at` | Pick AI models (completion, chat) · toggle completion |
 | `@{agent}` in the chat | Agent mode: reads, searches, edits (diff to accept) and runs commands (asks first) |
 | `Ctrl+h/j/k/l` · arrows | Move between windows (Ctrl crosses into tmux panes) |

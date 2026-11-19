@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# dev: one tmux session per project, with Neovim, opencode and a shell.
+#
+#   dev [dir]      open the project's workspace, or go back to it if it is already open
+#   dev -k [dir]   close it (no dir inside a workspace: the current one)
+#
+# A project is the directory given, or the current one; inside a git repo, the repo's root.
+# In ~ it offers the folders of ~/Projects to pick from; / is refused. The session is named
+# after the folder and has three windows:
+#
+#   1 code    nvim
+#   2 agent   opencode, resuming the project's last conversation (also floating: prefix a)
+#   3 shell   bash
+#
+# Leaving it (closing Ghostty, prefix d) keeps everything running; `dev` there brings it back.
+# tmux-continuum rebuilds the sessions after a reboot.
+#
+# Used by tmux and nvim, not meant to be typed:
+#   dev --float SESSION   show / hide the agent window floating over the current one (prefix a)
+#   dev --send TEXT       type TEXT into the agent's prompt and float it (nvim: Space ao)
+set -euo pipefail
+
+FLOAT_SUFFIX="__float"
+die() { echo "dev: $*" >&2; exit 1; }
+
+project_root() { # [dir] -> absolute project root
+    local dir=${1:-$PWD}
+    [ -d "$dir" ] || die "no such directory: $dir"
+    dir=$(cd "$dir" && pwd -P)
+    git -C "$dir" rev-parse --show-toplevel 2>/dev/null || echo "$dir"
+}
+
+pick_project() { # -> a folder of ~/Projects, or exit
+    [ -d "$HOME/Projects" ] || die "in ~, give a directory: dev <dir> (no ~/Projects to pick from)"
+    command -v fzf >/dev/null || die "in ~, give a directory: dev <dir> (fzf is needed to pick one)"
+    local p
+    p=$(find "$HOME/Projects" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -printf '%f\n' | sort \
+        | fzf --reverse --height=40% --header='Project (~/Projects)') || exit 0
+    echo "$HOME/Projects/$p"
+}
+
+session_root() { # session -> its project root. @dev_root, or the session's start directory:
+    # tmux-resurrect restores sessions without their options, but in their directory.
+    local r
+    r=$(tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true)
+    [ -n "$r" ] || r=$(tmux display-message -p -t "=$1:" '#{session_path}' 2>/dev/null || true)
+    echo "$r"
+}
+
+is_workspace() { # session -> true if dev made it (also after a restore: code + agent windows)
+    [ -n "$(tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true)" ] && return 0
+    local w; w=$(tmux list-windows -t "=$1" -F '#W' 2>/dev/null || true)
+    grep -qx code <<<"$w" && grep -qx agent <<<"$w"
+}
+
+session_for() { # root -> session name: the folder's, or parent-folder if that one is taken
+    local root=$1 name
+    name=$(basename "$root" | tr '.:' '__')
+    if tmux has-session -t "=$name" 2>/dev/null && [ "$(session_root "$name")" != "$root" ]; then
+        name="$(basename "$(dirname "$root")" | tr '.:' '__')-$name"
+    fi
+    echo "$name"
+}
+
+go() { # session: switch to it from inside tmux, attach to it from outside
+    if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$1"; else exec tmux attach-session -t "=$1"; fi
+}
+
+agent_pane() { # session -> the agent window's pane id, creating the window if missing
+    local s=$1 root pane
+    pane=$(tmux list-panes -t "=$s:agent" -F '#{pane_id}' 2>/dev/null | head -1 || true)
+    if [ -z "$pane" ]; then
+        root=$(session_root "$s")
+        pane=$(tmux new-window -d -P -F '#{pane_id}' -t "=$s:" -n agent -c "$root")
+        tmux send-keys -t "$pane" 'opencode --continue' Enter
+    fi
+    echo "$pane"
+}
+
+create() { # root name
+    local root=$1 name=$2
+    tmux new-session -d -s "$name" -c "$root" -n code
+    tmux set-option -t "=$name:" @dev_root "$root"
+    # Typed into a shell, not run as the window's command: quitting nvim or opencode leaves
+    # the window with a shell, and continuum restores them as programs of that shell.
+    tmux send-keys -t "=$name:code" 'nvim' Enter
+    tmux new-window -d -t "=$name:" -n agent -c "$root"
+    tmux send-keys -t "=$name:agent" 'opencode --continue' Enter
+    tmux new-window -d -t "=$name:" -n shell -c "$root"
+    tmux select-window -t "=$name:code"
+}
+
+float() { # session the key was pressed in
+    local s=$1
+    case $s in *"$FLOAT_SUFFIX")
+        tmux detach-client -s "=$s"; return ;;   # pressed inside the float: hide it
+    esac
+    agent_pane "$s" >/dev/null
+    local f="$s$FLOAT_SUFFIX"
+    tmux kill-session -t "=$f" 2>/dev/null || true
+    # A grouped session shares the windows but has its own current window, so the float shows
+    # the agent without moving the main view off nvim.
+    tmux new-session -d -s "$f" -t "=$s"
+    tmux set-option -t "=$f:" status off
+    tmux select-window -t "=$f:agent"
+    # On hide: drop the grouped session (so continuum never saves it) and reload in nvim any
+    # file the agent changed (a popup gives nvim no focus event).
+    tmux display-popup -E -w 90% -h 90% -T " agent · prefix a hides it " \
+        "TMUX= tmux attach-session -t '=$f'; tmux kill-session -t '=$f' 2>/dev/null; nvim-context --checktime '$s'"
+}
+
+send() { # text
+    [ -n "${TMUX:-}" ] || die "--send only works inside tmux"
+    local s pane fresh=0
+    s=$(tmux display-message -p '#{session_name}')
+    s=${s%"$FLOAT_SUFFIX"}
+    tmux list-panes -t "=$s:agent" >/dev/null 2>&1 || fresh=1
+    pane=$(agent_pane "$s")
+    if [ $fresh = 1 ]; then   # wait for opencode to draw its prompt
+        for _ in $(seq 1 50); do
+            [ "$(tmux display-message -p -t "$pane" '#{pane_current_command}')" = opencode ] && break
+            sleep 0.2
+        done
+        sleep 2
+    fi
+    tmux send-keys -t "$pane" -l "$1"
+    float "$s"
+}
+
+case "${1:-}" in
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+    --float) float "${2:?usage: dev --float SESSION}"; exit 0 ;;
+    --send) send "${2:?usage: dev --send TEXT}"; exit 0 ;;
+    -k)
+        if [ -z "${2:-}" ] && [ -n "${TMUX:-}" ]; then
+            name=$(tmux display-message -p '#{session_name}'); name=${name%"$FLOAT_SUFFIX"}
+            is_workspace "$name" || die "this session is not a dev workspace; give its directory"
+        else
+            root=$(project_root "${2:-}")
+            name=$(session_for "$root")
+            tmux has-session -t "=$name" 2>/dev/null && [ "$(session_root "$name")" = "$root" ] \
+                || die "no workspace open for $root"
+        fi
+        tmux kill-session -t "=$name$FLOAT_SUFFIX" 2>/dev/null || true
+        tmux kill-session -t "=$name"
+        exit 0 ;;
+    -*) die "unknown option: $1 (see dev --help)" ;;
+esac
+
+dir=${1:-$PWD}
+if [ -z "${1:-}" ] && [ "$(cd "$dir" && pwd -P)" = "$(cd "$HOME" && pwd -P)" ]; then
+    dir=$(pick_project)
+fi
+root=$(project_root "$dir")
+[ "$root" != / ] || die "/ is not a project"
+[ "$root" != "$(cd "$HOME" && pwd -P)" ] || die "~ is not a project: run dev in a project's folder"
+name=$(session_for "$root")
+if tmux has-session -t "=$name" 2>/dev/null; then
+    tmux set-option -t "=$name:" @dev_root "$root"   # again after a restore, which drops it
+else
+    create "$root" "$name"
+fi
+go "$name"

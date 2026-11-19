@@ -44,3 +44,24 @@ map("n", "<M-CR>", blank_lines(-1), { desc = "Blank line(s) above" })
 map({ "n", "t" }, "<C-ñ>", function()
   Snacks.terminal.focus(nil, { cwd = LazyVim.root() })
 end, { desc = "Terminal (Root Dir)" })
+
+-- Space ao: hand the current file (or the selected lines) to the project's agent: types an
+-- @-reference into opencode's prompt and floats it (bin/dev --send; prefix a hides it).
+map({ "n", "x" }, "<leader>ao", function()
+  if not vim.env.TMUX then
+    return vim.notify("Space ao needs tmux: open the project with `dev`", vim.log.levels.WARN)
+  end
+  local path = vim.fn.expand("%:.")
+  if path == "" then
+    return vim.notify("No file in this buffer", vim.log.levels.WARN)
+  end
+  local ref = "@" .. path
+  local mode = vim.fn.mode()
+  if mode == "v" or mode == "V" or mode == "\22" then
+    local a, b = vim.fn.line("v"), vim.fn.line(".")
+    ref = ("%s lines %d-%d"):format(ref, math.min(a, b), math.max(a, b))
+    vim.cmd("normal! \27") -- leave visual mode, so the selection marks are set for nvim-context
+  end
+  vim.cmd("silent! update") -- the agent reads the file from disk
+  vim.system({ "dev", "--send", ref .. " " })
+end, { desc = "Send file/selection to the agent (opencode)" })
