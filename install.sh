@@ -192,6 +192,7 @@ install_links() {
     link config/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
     link config/opencode/tui.json      "$HOME/.config/opencode/tui.json"
     link config/opencode/themes        "$HOME/.config/opencode/themes"
+    link config/agents/AGENTS.md       "$HOME/.config/opencode/AGENTS.md"
     for f in config.yml theme-mocha.yml theme-latte.yml; do
         link "config/lazygit/$f" "$HOME/.config/lazygit/$f"
     done

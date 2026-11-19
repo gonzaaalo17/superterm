@@ -142,7 +142,9 @@ return {
           cmd = { adapter = "ollama" },
           background = { adapter = "ollama" },
         },
-        opts = { language = "Spanish" },
+        -- Fills "written in the %s language" in the system prompt: answers follow the language
+        -- the user writes in (as AGENTS.md asks too) instead of a fixed one.
+        opts = { language = "user's" },
       }
     end,
     config = function(_, opts)
@@ -154,6 +156,8 @@ return {
         local path = type(f) == "table" and f.path or f
         return not vim.startswith(path, "~/")
       end, rules.files)
+      -- The local agents' global rules (config/agents/AGENTS.md), shared with opencode.
+      table.insert(rules.files, { path = "~/.config/opencode/AGENTS.md", parser = "claude" })
       -- @{agent}: local models call tools reliably one at a time with nothing written before
       -- the call; several calls in one reply, or text first, is when Ollama's parser drops one
       -- and the agent loop stops halfway.
