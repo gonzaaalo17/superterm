@@ -1,5 +1,0 @@
-# qwen3.6:35b-a3b-coding with a 32k context. Clients on Ollama's OpenAI API (opencode) can't
-# set num_ctx and would get 4096, too little for an agent. Same weights: costs no disk.
-#   ollama create qwen3.6-32k -f config/ollama/qwen3.6-32k.Modelfile   (install.sh does it)
-FROM qwen3.6:35b-a3b-coding
-PARAMETER num_ctx 32768

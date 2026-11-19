@@ -1,0 +1,7 @@
+# qwen3.6:35b-a3b-coding with a 128k context, for the agents (opencode, nvim chat).
+# Clients on Ollama's OpenAI API (opencode) can't set num_ctx and would get 4096. Same
+# weights: costs no disk. 128k is what fits an 8GB GPU (~91% on GPU); 256k spills half to
+# the CPU and runs 4-5x slower.
+#   ollama create qwen3.6-128k -f config/ollama/qwen3.6-128k.Modelfile   (install.sh does it)
+FROM qwen3.6:35b-a3b-coding
+PARAMETER num_ctx 131072

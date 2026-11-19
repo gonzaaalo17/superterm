@@ -291,13 +291,13 @@ SPELL
         if [ $ok_all = 1 ]; then ok "nvim Spanish spell dictionary"
         else warn "nvim Spanish spell dictionary: download or checksum failed"; fi
     fi
-    # opencode's model: qwen3.6 with a 32k context (see config/ollama/). Re-created on --update
-    # so it follows the base model when Ollama updates it.
+    # The agents' model (opencode, nvim chat): qwen3.6 with a 128k context (see config/ollama/).
+    # Re-created on --update so it follows the base model when Ollama updates it.
     if command -v ollama >/dev/null && ollama show qwen3.6:35b-a3b-coding >/dev/null 2>&1; then
-        if [ $UPDATE = 1 ] || ! ollama show qwen3.6-32k >/dev/null 2>&1; then
-            if ollama create qwen3.6-32k -f "$DOTFILES/config/ollama/qwen3.6-32k.Modelfile" >/dev/null 2>&1
-            then ok "ollama qwen3.6-32k (opencode)"; else warn "ollama create qwen3.6-32k failed"; FAILED=1; fi
-        else ok "ollama qwen3.6-32k already created"; fi
+        if [ $UPDATE = 1 ] || ! ollama show qwen3.6-128k >/dev/null 2>&1; then
+            if ollama create qwen3.6-128k -f "$DOTFILES/config/ollama/qwen3.6-128k.Modelfile" >/dev/null 2>&1
+            then ok "ollama qwen3.6-128k (opencode, nvim chat)"; else warn "ollama create qwen3.6-128k failed"; FAILED=1; fi
+        else ok "ollama qwen3.6-128k already created"; fi
     fi
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
