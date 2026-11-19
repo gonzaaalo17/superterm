@@ -95,6 +95,60 @@ fetch_verified() { # json asset_name dest_file
     echo "$digest  $dest" | sha256sum -c --quiet - || die "checksum mismatch for $name"
 }
 
+desktop_notify() { # summary body: a desktop notification when there is a session to show it
+    command -v notify-send >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] \
+        && notify-send -a superterm -u critical -i dialog-warning "$1" "$2" || true
+}
+
+# opencode drops config keys it doesn't know without a word, so a release that renames one
+# could quietly re-enable cloud providers or lose the permission prompts. After an update the
+# resolved config must still hold everything config/opencode/opencode.json sets, and offer
+# only Ollama models. Prints what is wrong; returns 1 if anything is.
+check_opencode() { # binary
+    local oc=$1 got bad=0
+    # the same environment as an interactive shell (home/.bashrc.d/10-env.sh)
+    local -a env=(OPENCODE_DISABLE_MODELS_FETCH=1 OPENCODE_DISABLE_AUTOUPDATE=1 OPENCODE_DISABLE_LSP_DOWNLOAD=1
+                  OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1 OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1)
+    if ! got=$(cd "$HOME" && env "${env[@]}" timeout 60 "$oc" debug config 2>&1) \
+        || ! jq -e . >/dev/null 2>&1 <<<"$got"; then
+        # e.g. "Configuration is invalid … ↳ <reason>"
+        echo "it rejects the config: $(sed 's/\x1b\[[0-9;]*m//g' <<<"$got" | grep -v '^\s*$' | head -3 | paste -sd' ')"
+        return 1
+    fi
+    jq -r --slurpfile want "$DOTFILES/config/opencode/opencode.json" '
+        def leaves: paths(scalars) as $p | {p: $p, v: getpath($p)};
+        . as $got | $want[0] | del(.["$schema"]) | [leaves]
+        | map(. as $l | select(($got | getpath($l.p)) != $l.v)) | .[]
+        | "setting dropped or changed: \(.p | map(tostring) | join("."))"
+    ' <<<"$got" | grep . && bad=1
+    local models
+    models=$(cd "$HOME" && env "${env[@]}" timeout 60 "$oc" models 2>/dev/null) || { echo "could not list its models"; return 1; }
+    local extra; extra=$(grep -v '^ollama/' <<<"$models" | grep . || true)
+    [ -n "$extra" ] && { sed 's/^/non-local model offered: /' <<<"$extra"; bad=1; }
+    grep -q '^ollama/' <<<"$models" || { echo "no Ollama model offered"; bad=1; }
+    return $bad
+}
+
+install_opencode() { # tmp_dir
+    local tmp=$1 json tag cur new problems
+    json=$(gh_release anomalyco/opencode); tag=$(jq -r .tag_name <<<"$json")
+    cur=$(opencode --version 2>/dev/null || true)
+    if [ -n "$cur" ] && [ "v$cur" = "$tag" ]; then ok "opencode $tag (already the latest)"; return; fi
+    fetch_verified "$json" opencode-linux-x64.tar.gz "$tmp/oc.tgz"
+    mkdir -p "$tmp/oc" && tar -xzf "$tmp/oc.tgz" -C "$tmp/oc"
+    new="$tmp/oc/opencode"
+    # First install: the config is linked after the binaries, nothing to check against yet.
+    if [ -n "$cur" ] && [ -e "$HOME/.config/opencode/opencode.json" ] && ! problems=$(check_opencode "$new"); then
+        warn "opencode $tag NOT installed, kept v$cur: it does not apply our config"
+        sed 's/^/      /' <<<"$problems" >&2
+        desktop_notify "opencode $tag rejected, still on v$cur" \
+            "After the update check it does not apply config/opencode/opencode.json: $(head -4 <<<"$problems" | paste -sd';'). Review the config for the new version before updating."
+        FAILED=1; return
+    fi
+    install -m755 "$new" "$BIN/"
+    ok "opencode $tag${cur:+ (was v$cur)}"
+}
+
 install_binaries() {
     say "Binaries into $BIN (verified with sha256)"
     [ "$(uname -m)" = x86_64 ] || { warn "only x86_64 assets are wired up; skipping binaries"; return; }
@@ -139,11 +193,7 @@ install_binaries() {
         ok "yazi $(jq -r .tag_name <<<"$json")"
     else ok "yazi already installed"; fi
 
-    if [ $UPDATE = 1 ] || ! command -v opencode >/dev/null; then
-        json=$(gh_release anomalyco/opencode)
-        fetch_verified "$json" opencode-linux-x64.tar.gz "$tmp/oc.tgz"
-        mkdir -p "$tmp/oc" && tar -xzf "$tmp/oc.tgz" -C "$tmp/oc" && install -m755 "$tmp/oc/opencode" "$BIN/"
-        ok "opencode $(jq -r .tag_name <<<"$json")"
+    if [ $UPDATE = 1 ] || ! command -v opencode >/dev/null; then install_opencode "$tmp"
     else ok "opencode already installed"; fi
 
     if [ $UPDATE = 1 ] || [ ! -f "$HOME/.local/share/blesh/ble.sh" ]; then
