@@ -35,3 +35,11 @@ shopt -s checkwinsize
 
 # lazygit: base config + Catppuccin theme for the current mode
 export LG_CONFIG_FILE="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/theme-$CATPPUCCIN_FLAVOR.yml"
+
+# opencode: local only. No model catalog download, update checks or unverified LSP downloads
+# (Mason installs the LSPs), and Claude Code's global CLAUDE.md and skills are not its prompt.
+export OPENCODE_DISABLE_MODELS_FETCH=1
+export OPENCODE_DISABLE_AUTOUPDATE=1
+export OPENCODE_DISABLE_LSP_DOWNLOAD=1
+export OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1
+export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1

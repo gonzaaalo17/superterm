@@ -139,6 +139,13 @@ install_binaries() {
         ok "yazi $(jq -r .tag_name <<<"$json")"
     else ok "yazi already installed"; fi
 
+    if [ $UPDATE = 1 ] || ! command -v opencode >/dev/null; then
+        json=$(gh_release anomalyco/opencode)
+        fetch_verified "$json" opencode-linux-x64.tar.gz "$tmp/oc.tgz"
+        mkdir -p "$tmp/oc" && tar -xzf "$tmp/oc.tgz" -C "$tmp/oc" && install -m755 "$tmp/oc/opencode" "$BIN/"
+        ok "opencode $(jq -r .tag_name <<<"$json")"
+    else ok "opencode already installed"; fi
+
     if [ $UPDATE = 1 ] || [ ! -f "$HOME/.local/share/blesh/ble.sh" ]; then
         json=$(gh_release akinomyoga/ble.sh nightly)
         fetch_verified "$json" ble-nightly.tar.xz "$tmp/ble.txz"
@@ -182,6 +189,7 @@ install_links() {
     link config/tmux/tmux.conf      "$HOME/.config/tmux/tmux.conf"
     link config/nvim                "$HOME/.config/nvim"
     link config/starship.toml       "$HOME/.config/starship.toml"
+    link config/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
     for f in config.yml theme-mocha.yml theme-latte.yml; do
         link "config/lazygit/$f" "$HOME/.config/lazygit/$f"
     done
@@ -280,6 +288,14 @@ es.utf-8.sug e70f3478aa653c2ae905086328fbff4e43bd646d76534645f50a65344801bd6c
 SPELL
         if [ $ok_all = 1 ]; then ok "nvim Spanish spell dictionary"
         else warn "nvim Spanish spell dictionary: download or checksum failed"; fi
+    fi
+    # opencode's model: qwen3.6 with a 32k context (see config/ollama/). Re-created on --update
+    # so it follows the base model when Ollama updates it.
+    if command -v ollama >/dev/null && ollama show qwen3.6:35b-a3b-coding >/dev/null 2>&1; then
+        if [ $UPDATE = 1 ] || ! ollama show qwen3.6-32k >/dev/null 2>&1; then
+            if ollama create qwen3.6-32k -f "$DOTFILES/config/ollama/qwen3.6-32k.Modelfile" >/dev/null 2>&1
+            then ok "ollama qwen3.6-32k (opencode)"; else warn "ollama create qwen3.6-32k failed"; FAILED=1; fi
+        else ok "ollama qwen3.6-32k already created"; fi
     fi
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
