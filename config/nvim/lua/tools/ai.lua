@@ -7,23 +7,25 @@
 -- The choice lives in ~/.config/ai/config.json, the same per-machine file as the `ai` command
 -- (never committed), under "nvim": { "complete": "...", "chat": "..." }. On a machine with more
 -- VRAM, change it there or with :AIModel; the defaults below are what fits an 8 GB GPU.
--- "chat_ctx" (tokens of context for the chat) is optional: raise it on a bigger GPU.
+-- "chat_ctx" (tokens of context for the chat) is optional; keep it equal to the chat model's num_ctx.
 -- OLLAMA_HOST is honoured, as in `ai`.
 local M = {}
 
--- Measured on an RTX 5060 (8 GB), Ollama, ~1.1k-token FIM prompt / 16k-token chat context:
---   complete  qwen2.5-coder:1.5b-base   ~300 ms per suggestion, 1.2 GB, always on the GPU
---             qwen2.5-coder:7b          ~940 ms
---   chat      qwen2.5-coder:14b         ~11 tok/s, 45% on CPU. It does not fit next to the
---                                       completion model, so switching between typing and chat
---                                       reloads one of them (~4-5 s the first time).
---             qwen2.5-coder:7b          ~74 tok/s, fits on the GPU next to the 1.5b: no reloads.
+-- Measured on an RTX 5060 (8 GB), Ollama:
+--   complete  qwen2.5-coder:1.5b-base   ~300 ms per suggestion, always loaded next to the chat model
+--   chat      qwen3.6-128k              qwen3.6:35b-a3b-coding (MoE, 3B active) with a 128k context
+--                                       (config/ollama/): ~43 tok/s, 91% on the GPU, and the agent
+--                                       that won the benchmark (10/10 tasks, no broken tool calls).
+--                                       Shared with opencode: one loaded copy for both.
+--             qwen3-coder:30b           ~38 tok/s, but its tool calls broke in 2 of 5 runs, and it
+--                                       evicted the completion model (4-11 s reloads).
 M.defaults = {
   complete = "qwen2.5-coder:1.5b-base",
-  chat = "qwen2.5-coder:14b",
+  chat = "qwen3.6-128k",
 }
 
-M.default_chat_ctx = 16384
+-- Must match qwen3.6-128k's num_ctx: a different value makes Ollama load a second copy.
+M.default_chat_ctx = 131072
 
 M.roles = { "complete", "chat" }
 M.path = vim.fn.expand("~/.config/ai/config.json")

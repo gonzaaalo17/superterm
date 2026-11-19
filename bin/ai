@@ -24,7 +24,7 @@ import urllib.error
 import urllib.request
 
 CONFIG_PATH = os.path.expanduser("~/.config/ai/config.json")
-DEFAULT_MODEL = "qwen2.5-coder:7b"
+DEFAULT_MODEL = "qwen3.6-128k"  # the agents' model: shares their loaded copy
 HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 if not HOST.startswith("http"):
     HOST = "http://" + HOST
@@ -213,7 +213,10 @@ def ask(model, question, explain, piped):
     if TTY_ERR:
         print(f"{DIM}▌ {model}{RESET}", file=sys.stderr)
     try:
-        resp = api("/api/chat", {"model": model, "messages": messages, "stream": True}, stream=True)
+        # think: False — quick answers; thinking models would reason for ~10x the tokens first
+        # (models without thinking ignore it).
+        resp = api("/api/chat", {"model": model, "messages": messages, "stream": True, "think": False},
+                   stream=True)
     except RuntimeError as e:
         if "not found" in str(e):
             die(f"model '{model}' is not installed. See: ai --models · ai --switch")

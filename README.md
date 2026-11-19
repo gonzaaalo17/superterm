@@ -40,8 +40,10 @@ It is safe to run again. Options: `--links` (only the symlinks), `--no-packages`
 
 Optional extras, not automated:
 
-- `ai` needs [Ollama](https://ollama.com) and a model: `ollama pull qwen2.5-coder:7b`.
-- AI in Neovim needs `ollama pull qwen2.5-coder:1.5b-base` (completion) and `ollama pull qwen2.5-coder:14b` (chat), or whatever `:AIModel` is set to.
+- Local AI (`ai`, Neovim, opencode) needs [Ollama](https://ollama.com) and two models:
+  `ollama pull qwen3.6:35b-a3b-coding` (agents, chat, `ai`) and `ollama pull qwen2.5-coder:1.5b-base`
+  (completion). Then run `./install.sh` again: it creates `qwen3.6-128k`, the same model with a 128k
+  context (`config/ollama/`).
 - `atuin import bash` brings the old bash history into `Ctrl+R`.
 
 ## Day to day
@@ -96,22 +98,23 @@ it holds passwords. lazysql is always run with `-no-telemetry`, also via the she
 - Inline completion while typing (minuet-ai): grey text, `Tab` accepts, `Alt+a` one line,
   `Alt+]`/`Alt+[` next/previous, `Alt+e` dismiss, `Space at` toggles it in the buffer.
 - Chat and inline edits (CodeCompanion): `Space aa` chat, `Space ai` inline (also on a selection),
-  `Space ap` actions, `Space ac` send the selection to the chat. Answers in Spanish; it reads the
-  project's rule files (`AGENTS.md`, `CLAUDE.md`…), not `~/.claude/CLAUDE.md`.
+  `Space ap` actions, `Space ac` send the selection to the chat. Answers in the language you write
+  in; it reads the agents' global rules (`config/agents/AGENTS.md`) and the project's rule files
+  (`AGENTS.md`, `CLAUDE.md`…), not `~/.claude/CLAUDE.md`.
 - Agent mode: start a chat message with `@{agent}` and it reads and searches the project (no
   prompts inside it, a prompt for anything outside), edits files (each edit shown as a diff to
-  accept) and runs commands (always asks). It needs a model with tool calling (`qwen3-coder:30b`)
-  and room for its tools: `"chat_ctx": 32768`. Local models sometimes stop halfway through a
-  task; "continúa" picks it up.
+  accept) and runs commands (always asks). It needs a model with tool calling (the default
+  `qwen3.6-128k`). If a local model stops halfway through a task, "continúa" picks it up.
 - Each has its own model, per machine, in `~/.config/ai/config.json` (the `ai` command's file,
-  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 32768}`. `Space am` /
+  not committed): `"nvim": {"complete": "…", "chat": "…", "chat_ctx": 131072}`. `Space am` /
   `:AIModel` picks them from the installed models; completion switches at once, chat from the next
   conversation. On a machine with more VRAM, just point them at bigger models.
 
-Defaults, measured on an 8 GB RTX 5060: completion `qwen2.5-coder:1.5b-base` (~300 ms, always on
-the GPU); chat `qwen2.5-coder:14b` (~11 tok/s, partly on CPU). The 14b does not fit next to the
-completion model, so going from chat to typing (or back) reloads one of them, ~4-5 s the first
-time. `qwen2.5-coder:7b` as chat model runs at ~74 tok/s and fits next to it: no reloads.
+Defaults, measured on an 8 GB RTX 5060: completion `qwen2.5-coder:1.5b-base` (~300 ms); chat
+`qwen3.6-128k` (~43 tok/s, 91% on the GPU), the best of four agent models in a benchmark (10/10
+tasks, no broken tool calls). Both stay loaded together, so going from typing to chat costs no
+reload, and opencode and `ai` share the chat model's loaded copy. `chat_ctx` must stay at the
+model's 131072: another value makes Ollama load a second copy.
 
 **Adding a language:** `:LazyExtras`, pick `lang.<name>`, press `x`, restart. It brings the LSP,
 formatter, linter, treesitter parser and debugger, and is recorded in `lazyvim.json` — commit it.

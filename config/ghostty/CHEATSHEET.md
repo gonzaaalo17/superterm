@@ -160,12 +160,12 @@ every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`.
 | `cmd \| ai "question"` | Ask about piped output (e.g. `git diff \| ai "write a commit message"`) |
 | `ai --models` | List local models (`*` = active) |
 | `ai --switch` | Pick the default model with fzf |
-| `ai --switch qwen2.5-coder:14b` | Set the default model directly |
+| `ai --switch qwen2.5-coder:7b` | Set the default model directly |
 | `ai -m phi3:mini "question"` | Use another model just this once |
 | `ai --help` | Help |
 
 > The first call after a while takes longer: Ollama has to load the model into memory.
-> Default: `qwen2.5-coder:7b` · bigger and slower but better: `qwen2.5-coder:14b`.
+> Default: `qwen3.6-128k`, the same model as the agents (opencode, nvim chat): one loaded copy for all.
 
 ## Commands and aliases
 | Command | What it does |

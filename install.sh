@@ -365,8 +365,9 @@ cat <<'EOF'
   Next:
     · open a new terminal (or `source ~/.bashrc`)
     · fully restart Ghostty (Ctrl+Shift+Q) so it loads its config
-    · optional, for `ai`: install Ollama (https://ollama.com) and `ollama pull qwen2.5-coder:7b`
-    · optional, AI in nvim: `ollama pull qwen2.5-coder:1.5b-base` (completion) and `qwen2.5-coder:14b` (chat)
+    · optional, local AI (ai, nvim, opencode): install Ollama (https://ollama.com), then
+      `ollama pull qwen3.6:35b-a3b-coding` (agents, chat, ai) and `ollama pull qwen2.5-coder:1.5b-base`
+      (completion), and run ./install.sh again to create qwen3.6-128k
     · optional: `atuin import bash` to bring your old history into Ctrl+R
     · `cheat` shows every shortcut
 EOF
