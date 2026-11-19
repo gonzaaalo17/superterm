@@ -261,6 +261,26 @@ install_plugins() {
             ok "nvim plugins (lazy-lock.json; LSPs install on first launch)"
         else warn "nvim plugins: restore failed, run :Lazy restore inside nvim"; fi
     fi
+    # Spanish spell dictionary for Neovim (spelllang=en,es). Vim's own files, unchanged since
+    # 2019: pinned by sha256, so a changed upstream file is refused, not installed.
+    if command -v nvim >/dev/null; then
+        local spell="$HOME/.local/share/nvim/site/spell" f sum ok_all=1
+        mkdir -p "$spell"
+        while read -r f sum; do
+            [ -f "$spell/$f" ] && continue
+            if curl -fsSL -o "$spell/$f.part" "https://ftp.nluug.nl/pub/vim/runtime/spell/$f" \
+                && echo "$sum  $spell/$f.part" | sha256sum -c --quiet - >/dev/null 2>&1; then
+                mv "$spell/$f.part" "$spell/$f"
+            else
+                rm -f "$spell/$f.part"; ok_all=0
+            fi
+        done <<'SPELL'
+es.utf-8.spl 963637ac925cf8a51bf207fac392d6b4c69795711dcc2d4809b78846ae367be3
+es.utf-8.sug e70f3478aa653c2ae905086328fbff4e43bd646d76534645f50a65344801bd6c
+SPELL
+        if [ $ok_all = 1 ]; then ok "nvim Spanish spell dictionary"
+        else warn "nvim Spanish spell dictionary: download or checksum failed"; fi
+    fi
     if command -v tldr >/dev/null; then tldr --update >/dev/null 2>&1 && ok "tldr pages"; fi
 }
 
