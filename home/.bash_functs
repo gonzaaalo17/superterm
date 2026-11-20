@@ -47,7 +47,7 @@ cpall () {
 		# if destiny is inside origin, skip from moving
 		[ "$file" = "$destiny" ] && continue 
 
-		cp "$file" "$destiny/$(basename "$file")"
+		cp -r "$file" "$destiny/$(basename "$file")"
 	done
 
 	return 0
@@ -91,8 +91,8 @@ rmgroup() {
 	# If target and flag are empty, return error message
 	if [[ -z "$target" || -z "$mode" ]]; then
 		echo "Usage:"
-		echo "  remove_some TARGET --range FROM TO"
-		echo "  remove_some TARGET --select INDEX [INDEX ...]"
+		echo "  rmgroup TARGET --range FROM TO"
+		echo "  rmgroup TARGET --select INDEX [INDEX ...]"
 		return 2
 	fi
 
@@ -133,7 +133,7 @@ rmgroup() {
 		# If user gives more arguments than expected
 		if [[ $# -ne 4 ]]; then
 			echo "Error: --range requires exactly two indices."
-			echo "Usage: remove_some TARGET --range FROM TO"
+			echo "Usage: rmgroup TARGET --range FROM TO"
 		    	return 2
 		fi
 
@@ -168,7 +168,7 @@ rmgroup() {
 		# If argument count is less than 3 means user gave no selection
 		if (( $# < 3 )); then
 		    	echo "Error: --select requires at least one index."
-		    	echo "Usage: remove_some TARGET --select INDEX [INDEX ...]"
+		    	echo "Usage: rmgroup TARGET --select INDEX [INDEX ...]"
 		    	return 2
 		fi
 		
@@ -313,10 +313,11 @@ y() {
 	local tmp cwd
 	tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
 	yazi "$@" --cwd-file="$tmp"
-	if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+	cwd="$(command cat -- "$tmp" 2>/dev/null)"
+	rm -f -- "$tmp"
+	if [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
 		builtin cd -- "$cwd" || return
 	fi
-	rm -f -- "$tmp"
 }
 
 # fe: find a file with fzf (with preview) and open it in the editor
