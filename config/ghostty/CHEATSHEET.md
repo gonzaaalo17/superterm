@@ -202,6 +202,9 @@ every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`.
 | `tp file` | Move to trash instead of deleting |
 | `tldr command` | Quick usage examples (`tldr tar`, `tldr --update` to refresh) |
 | `gst` · `gd` · `gds` · `glog` | git status / diff / staged diff / graph log |
+| `..` · `...` · `....` · `-` | Up one / two / three directories · back to the previous one |
+| `g` · `path` · `ports` | git · PATH one entry per line · listening ports |
+| `update` | Quick dnf + flatpak upgrade (`update-all` is the full one) |
 | `reload` | Reload bashrc |
 | `cheat` | This cheatsheet |
 
