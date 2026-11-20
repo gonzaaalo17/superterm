@@ -106,6 +106,7 @@ check_orphans() {
         # dnf shows the full transaction and asks again before changing anything.
         read -rp "  Replace them now? [y/N] " a
         if [[ $a =~ ^[yY]$ ]]; then
+            # shellcheck disable=SC1010  # dnf5 "do" subcommand, not the shell keyword
             sudo dnf do --action=remove "${old[@]}" --action=install "${new[@]}" && return 0
         fi
     fi

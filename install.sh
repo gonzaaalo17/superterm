@@ -215,8 +215,8 @@ link() { # repo_path target
     fi
     mkdir -p "$(dirname "$dst")"
     if [ -e "$dst" ] || [ -L "$dst" ]; then
-        mkdir -p "$BACKUP/$(dirname "${dst#$HOME/}")"
-        mv "$dst" "$BACKUP/${dst#$HOME/}"
+        mkdir -p "$BACKUP/$(dirname "${dst#"$HOME"/}")"
+        mv "$dst" "$BACKUP/${dst#"$HOME"/}"
         warn "backed up existing ${dst/#$HOME/\~}"
     fi
     ln -s "$src" "$dst"
