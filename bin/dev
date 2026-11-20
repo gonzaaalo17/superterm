@@ -55,9 +55,13 @@ is_workspace() { # session -> true if dev made it
 
 session_for() { # root -> session name: the folder's, or parent-folder if that one is taken
     local root=$1 name
+    local base n=2
     name=$(basename "$root" | tr -c '[:alnum:]_\n-' '_')   # no . : (tmux targets), spaces, quotes
-    if tmux has-session -t "=$name" 2>/dev/null && [ "$(session_root "$name")" != "$root" ]; then
+    taken() { tmux has-session -t "=$1" 2>/dev/null && [ "$(session_root "$1")" != "$root" ]; }
+    if taken "$name"; then
         name="$(basename "$(dirname "$root")" | tr -c '[:alnum:]_\n-' '_')-$name"
+        base=$name
+        while taken "$name"; do name="$base-$n"; n=$((n + 1)); done
     fi
     echo "$name"
 }
