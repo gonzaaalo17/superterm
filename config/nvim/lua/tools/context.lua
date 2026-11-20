@@ -127,13 +127,4 @@ function M.get()
   return table.concat(out, "\n")
 end
 
--- Reload buffers whose files changed on disk (called after the floating agent closes: a popup
--- does not give nvim a focus event, so LazyVim's checktime on FocusGained doesn't run).
-function M.checktime()
-  vim.schedule(function()
-    pcall(vim.cmd.checktime)
-  end)
-  return ""
-end
-
 return M

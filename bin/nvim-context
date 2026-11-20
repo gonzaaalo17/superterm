@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # nvim-context: what the user is looking at in Neovim — current file, cursor, last selection,
-# diagnostics, unsaved buffers — for an agent (opencode) in another window of the same tmux
+# diagnostics, unsaved buffers — for an agent (opencode) in another pane of the same tmux
 # session. Read-only. See config/nvim/lua/tools/context.lua.
 #
-#   nvim-context                      print it (the nvim of the most recently used window)
-#   nvim-context --checktime SESSION  make every nvim of SESSION reload files changed on disk
+#   nvim-context    print it (the nvim of the most recently used window)
 #
 # Each nvim listens on $XDG_RUNTIME_DIR/nvim.<pid>.0 by default; the one that belongs to the
 # session is found by walking up from its pid to one of the session's panes.
@@ -39,14 +38,6 @@ remote() { # sock lua-expression
     # stdin from /dev/null: with a terminal on stdin, nvim starts its UI instead of just answering
     timeout 5 nvim --server "$1" --remote-expr "luaeval('$2')" </dev/null 2>/dev/null
 }
-
-if [ "${1:-}" = --checktime ]; then
-    [ -n "${2:-}" ] || { echo "usage: nvim-context --checktime SESSION" >&2; exit 2; }
-    while read -r sock; do
-        [ -n "$sock" ] && remote "$sock" 'require("tools.context").checktime()' >/dev/null || true
-    done < <(sockets_of "$2")
-    exit 0
-fi
 
 if [ -z "${TMUX:-}" ]; then
     say "nvim-context: not running inside tmux, so there is no Neovim session to read."

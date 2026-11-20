@@ -1,26 +1,29 @@
 #!/usr/bin/env bash
-# dev: one tmux session per project, with Neovim, opencode and a shell.
+# dev: one tmux session per project, with Neovim, opencode and a shell side by side.
 #
 #   dev [dir]      open the project's workspace, or go back to it if it is already open
 #   dev -k [dir]   close it (no dir inside a workspace: the current one)
 #
 # A project is the directory given, or the current one; inside a git repo, the repo's root.
 # In ~ it offers the folders of ~/Projects to pick from; / is refused. The session is named
-# after the folder and has three windows:
+# after the folder and has one window, "code", with three panes:
 #
-#   1 code    nvim
-#   2 agent   opencode, resuming the project's last conversation (also floating: prefix a)
-#   3 shell   bash
+#   ┌──────────────┬──────────┐
+#   │ nvim         │ opencode │   opencode resumes the project's last conversation
+#   ├──────────────┤          │
+#   │ shell        │          │
+#   └──────────────┴──────────┘
 #
 # Leaving it (closing Ghostty, prefix d) keeps everything running; `dev` there brings it back.
 # tmux-continuum rebuilds the sessions after a reboot.
 #
 # Used by tmux and nvim, not meant to be typed:
-#   dev --float SESSION   show / hide the agent window floating over the current one (prefix a)
-#   dev --send TEXT       type TEXT into the agent's prompt and float it (nvim: Space ao)
+#   dev --zoom SESSION   the agent full screen / back to the layout (prefix a)
+#   dev --send TEXT      type TEXT into the agent's prompt and go to it (nvim: Space ao)
 set -euo pipefail
 
-FLOAT_SUFFIX="__float"
+AGENT_WIDTH=40%   # of the window
+SHELL_HEIGHT=25%  # of the nvim column
 die() { echo "dev: $*" >&2; exit 1; }
 
 project_root() { # [dir] -> absolute project root
@@ -47,10 +50,9 @@ session_root() { # session -> its project root. @dev_root, or the session's star
     echo "$r"
 }
 
-is_workspace() { # session -> true if dev made it (also after a restore: code + agent windows)
+is_workspace() { # session -> true if dev made it (also after a restore: a "code" window)
     [ -n "$(tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true)" ] && return 0
-    local w; w=$(tmux list-windows -t "=$1" -F '#W' 2>/dev/null || true)
-    grep -qx code <<<"$w" && grep -qx agent <<<"$w"
+    tmux list-windows -t "=$1" -F '#W' 2>/dev/null | grep -qx code
 }
 
 session_for() { # root -> session name: the folder's, or parent-folder if that one is taken
@@ -66,74 +68,94 @@ go() { # session: switch to it from inside tmux, attach to it from outside
     if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$1"; else exec tmux attach-session -t "=$1"; fi
 }
 
-agent_pane() { # session -> the agent window's pane id, creating the window if missing
-    local s=$1 root pane
-    pane=$(tmux list-panes -t "=$s:agent" -F '#{pane_id}' 2>/dev/null | head -1 || true)
+find_agent() { # session -> the agent's pane id, or nothing. The pane dev tagged, or else (after a
+    # restore, which drops pane options) the pane running opencode.
+    local id role cmd tagged="" running=""
+    while read -r id role cmd; do
+        [ "$role" = agent ] && [ -z "$tagged" ] && tagged=$id
+        [ "$cmd" = opencode ] && [ -z "$running" ] && running=$id
+    done < <(tmux list-panes -s -t "=$1" -F '#{pane_id} #{?@dev_role,#{@dev_role},-} #{pane_current_command}' 2>/dev/null)
+    echo "${tagged:-$running}"
+}
+
+agent_pane() { # session -> the agent's pane id, opening it on the right if missing
+    local s=$1 pane root target
+    pane=$(find_agent "$s")
     if [ -z "$pane" ]; then
         root=$(session_root "$s")
-        pane=$(tmux new-window -d -P -F '#{pane_id}' -t "=$s:" -n agent -c "$root")
+        target="=$s:code"
+        tmux list-windows -t "=$s" -F '#W' | grep -qx code || target="=$s:"
+        pane=$(tmux split-window -d -h -f -l "$AGENT_WIDTH" -t "$target" -c "$root" -P -F '#{pane_id}')
         tmux send-keys -t "$pane" 'opencode --continue' Enter
     fi
+    tmux set-option -p -t "$pane" @dev_role agent
     echo "$pane"
 }
 
-create() { # root name
-    local root=$1 name=$2
-    tmux new-session -d -s "$name" -c "$root" -n code
-    tmux set-option -t "=$name:" @dev_root "$root"
-    # Typed into a shell, not run as the window's command: quitting nvim or opencode leaves
-    # the window with a shell, and continuum restores them as programs of that shell.
-    tmux send-keys -t "=$name:code" 'nvim' Enter
-    tmux new-window -d -t "=$name:" -n agent -c "$root"
-    tmux send-keys -t "=$name:agent" 'opencode --continue' Enter
-    tmux new-window -d -t "=$name:" -n shell -c "$root"
-    tmux select-window -t "=$name:code"
+show_pane() { # pane: make it the current pane of its session
+    tmux select-window -t "$1"
+    tmux select-pane -t "$1"
 }
 
-float() { # session the key was pressed in
-    local s=$1
-    case $s in *"$FLOAT_SUFFIX")
-        tmux detach-client -s "=$s"; return ;;   # pressed inside the float: hide it
-    esac
-    agent_pane "$s" >/dev/null
-    local f="$s$FLOAT_SUFFIX"
-    tmux kill-session -t "=$f" 2>/dev/null || true
-    # A grouped session shares the windows but has its own current window, so the float shows
-    # the agent without moving the main view off nvim.
-    tmux new-session -d -s "$f" -t "=$s"
-    tmux set-option -t "=$f:" status off
-    tmux select-window -t "=$f:agent"
-    # On hide: drop the grouped session (so continuum never saves it) and reload in nvim any
-    # file the agent changed (a popup gives nvim no focus event).
-    tmux display-popup -E -w 90% -h 90% -T " agent · prefix a hides it " \
-        "TMUX= tmux attach-session -t '=$f'; tmux kill-session -t '=$f' 2>/dev/null; nvim-context --checktime '$s'"
+create() { # root name
+    local root=$1 name=$2 size=() w="" h="" code agent
+    # Detached sessions are 80x24: start at the terminal's size so the split percentages hold.
+    if [ -n "${TMUX:-}" ]; then
+        w=$(tmux display-message -p '#{client_width}'); h=$(tmux display-message -p '#{client_height}')
+    fi
+    if [ -z "$w" ] && [ -t 1 ]; then w=$(tput cols); h=$(tput lines); fi
+    [ -n "$w" ] && [ -n "$h" ] && size=(-x "$w" -y "$h")
+    code=$(tmux new-session -d -P -F '#{pane_id}' -s "$name" -c "$root" -n code "${size[@]}")
+    tmux set-option -t "=$name:" @dev_root "$root"
+    # Typed into a shell, not run as the pane's command: quitting nvim or opencode leaves the
+    # pane with a shell, and continuum restores them as programs of that shell.
+    tmux send-keys -t "$code" 'nvim' Enter
+    agent=$(tmux split-window -d -h -f -l "$AGENT_WIDTH" -t "$code" -c "$root" -P -F '#{pane_id}')
+    tmux set-option -p -t "$agent" @dev_role agent
+    tmux send-keys -t "$agent" 'opencode --continue' Enter
+    tmux split-window -d -v -l "$SHELL_HEIGHT" -t "$code" -c "$root"
+    tmux select-pane -t "$code"
+}
+
+zoom() { # session the key was pressed in: the agent full screen, or back to the layout
+    local s=$1 pane cur zoomed
+    pane=$(agent_pane "$s")
+    cur=$(tmux display-message -p -t "=$s:" '#{pane_id}')
+    zoomed=$(tmux display-message -p -t "$pane" '#{window_zoomed_flag}')
+    if [ "$cur" = "$pane" ] && [ "$zoomed" = 1 ]; then
+        tmux resize-pane -Z -t "$pane"
+        tmux last-pane -t "$pane" 2>/dev/null || true   # back where you were
+    else
+        show_pane "$pane"
+        [ "$zoomed" = 1 ] || tmux resize-pane -Z -t "$pane"
+    fi
 }
 
 send() { # text
     [ -n "${TMUX:-}" ] || die "--send only works inside tmux"
-    local s pane fresh=0
-    s=$(tmux display-message -p '#{session_name}')
-    s=${s%"$FLOAT_SUFFIX"}
-    tmux list-panes -t "=$s:agent" >/dev/null 2>&1 || fresh=1
-    pane=$(agent_pane "$s")
-    if [ $fresh = 1 ]; then   # wait for opencode to draw its prompt
-        for _ in $(seq 1 50); do
+    local s pane
+    s=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} '#{session_name}')
+    if [ -z "$(find_agent "$s")" ]; then
+        pane=$(agent_pane "$s")
+        for _ in $(seq 1 50); do   # wait for opencode to draw its prompt
             [ "$(tmux display-message -p -t "$pane" '#{pane_current_command}')" = opencode ] && break
             sleep 0.2
         done
         sleep 2
+    else
+        pane=$(agent_pane "$s")
     fi
     tmux send-keys -t "$pane" -l "$1"
-    float "$s"
+    show_pane "$pane"
 }
 
 case "${1:-}" in
-    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
-    --float) float "${2:?usage: dev --float SESSION}"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    --zoom) zoom "${2:?usage: dev --zoom SESSION}"; exit 0 ;;
     --send) send "${2:?usage: dev --send TEXT}"; exit 0 ;;
     -k)
         if [ -z "${2:-}" ] && [ -n "${TMUX:-}" ]; then
-            name=$(tmux display-message -p '#{session_name}'); name=${name%"$FLOAT_SUFFIX"}
+            name=$(tmux display-message -p '#{session_name}')
             is_workspace "$name" || die "this session is not a dev workspace; give its directory"
         else
             root=$(project_root "${2:-}")
@@ -141,7 +163,6 @@ case "${1:-}" in
             tmux has-session -t "=$name" 2>/dev/null && [ "$(session_root "$name")" = "$root" ] \
                 || die "no workspace open for $root"
         fi
-        tmux kill-session -t "=$name$FLOAT_SUFFIX" 2>/dev/null || true
         tmux kill-session -t "=$name"
         exit 0 ;;
     -*) die "unknown option: $1 (see dev --help)" ;;

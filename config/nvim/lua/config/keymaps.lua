@@ -46,7 +46,7 @@ map({ "n", "t" }, "<C-ñ>", function()
 end, { desc = "Terminal (Root Dir)" })
 
 -- Space ao: hand the current file (or the selected lines) to the project's agent: types an
--- @-reference into opencode's prompt and floats it (bin/dev --send; prefix a hides it).
+-- @-reference into opencode's prompt and moves to its pane (bin/dev --send).
 map({ "n", "x" }, "<leader>ao", function()
   if not vim.env.TMUX then
     return vim.notify("Space ao needs tmux: open the project with `dev`", vim.log.levels.WARN)

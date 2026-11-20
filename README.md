@@ -61,13 +61,20 @@ On another machine: `git pull` (and `./install.sh --links` if a new file was add
 
 ## Workspace: `dev`
 
-`dev` opens a project as a tmux session, or goes back to it if it is already open:
+`dev` opens a project as a tmux session, or goes back to it if it is already open. One window,
+`code`, with everything in view:
 
-| Window | What |
-|---|---|
-| 1 `code` | nvim |
-| 2 `agent` | opencode, on the project's last conversation (`--continue`) |
-| 3 `shell` | bash |
+```
+┌──────────────────────┬──────────────┐
+│ nvim                 │ opencode     │   opencode on the project's last
+│                      │ (40 %)       │   conversation (--continue)
+├──────────────────────┤              │
+│ shell (25 %)         │              │
+└──────────────────────┴──────────────┘
+```
+
+`Ctrl+h/j/k/l` moves between the three (from nvim too); `prefix z` makes the current pane full
+screen and back, `prefix H/J/K/L` resizes.
 
 - **Project:** the directory given (`dev ~/Projects/foo`) or the current one; inside a git repo, the
   repo's root, so `dev` from any subfolder lands in the same session. In `~` it offers the folders
@@ -77,14 +84,14 @@ On another machine: `git pull` (and `./install.sh --links` if a new file was add
   agent's work included; `dev` there brings it back as it was. `dev -k` closes it (the current
   one inside a workspace). Open sessions cost RAM (nvim, its LSPs, opencode), almost no CPU; the
   GPU model is Ollama's, unloaded after a few idle minutes whatever is open.
-- **After a reboot** tmux-continuum rebuilds them: windows in their folders, nvim with its files,
+- **After a reboot** tmux-continuum rebuilds them: panes in their folders and sizes, nvim with its files,
   opencode on its last conversation (it keeps them on disk). Unsaved changes and running servers
   are gone.
-- **The agent floating:** `prefix a` shows opencode over whatever window you are in; `prefix a`
-  again hides it. It is the same opencode as window 2 (a grouped session shows it without moving
-  the main view). Hiding it makes nvim reload the files the agent changed.
+- **The agent full screen:** `prefix a` goes to opencode and zooms it; `prefix a` again brings the
+  layout back and returns to the pane you were in. Outside a workspace it opens opencode on the
+  right of the window. Going back to nvim reloads the files the agent changed (focus events).
 - **nvim → agent:** `Space ao` types `@file` (with `lines a-b` on a selection) into opencode's
-  prompt and floats it; the file is saved first, since the agent reads it from disk.
+  prompt and moves to it; the file is saved first, since the agent reads it from disk.
 - **agent → nvim:** when you say "this file", "the selection", "these errors", opencode runs
   `nvim-context` (allowed without asking): it asks this session's nvim, through its server socket,
   for the current file, cursor, last selection, diagnostics and unsaved buffers.
