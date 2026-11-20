@@ -300,6 +300,7 @@ install_plugins() {
     local tpm="$HOME/.config/tmux/plugins/tpm"
     [ -d "$tpm" ] || git clone -q --depth 1 https://github.com/tmux-plugins/tpm "$tpm"
     "$tpm/bin/install_plugins" >/dev/null && ok "tmux plugins (TPM)"
+    "$tpm/bin/clean_plugins" >/dev/null || true   # drop plugins no longer in tmux.conf
     if command -v ya >/dev/null; then ya pkg install >/dev/null && ok "yazi plugins and flavors"; fi
     # Neovim plugins. Install: the exact versions in config/nvim/lazy-lock.json.
     # --update (the weekly update-all): latest plugins, treesitter parsers and Mason tools;

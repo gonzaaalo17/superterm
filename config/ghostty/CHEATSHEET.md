@@ -87,7 +87,6 @@
 | `prefix Ctrl+k` | Delete to end of line (`Ctrl+k` moves between panes) |
 | `prefix r` | Reload tmux.conf |
 | `prefix I` / `U` | Install / update plugins |
-| `prefix Ctrl+s` / `Ctrl+r` | Save / restore sessions (also automatic every 15 min) |
 | `prefix a` | The project's agent (opencode) full screen / back |
 
 ## Workspace · `dev`
@@ -95,7 +94,8 @@
 |---|---|
 | `dev` · `dev <dir>` | Open the project (current dir / given; git root) or go back to it: nvim · shell below · opencode right |
 | `dev` in `~` | Pick a project of ~/Projects (fzf) |
-| `dev -k` · `dev -k <dir>` | Close the workspace (current / of that dir) |
+| `dev -k` · `dev -k <dir>` | Close the workspace for good (current / of that dir); `dev` starts it again |
+| `Space qs` (nvim) | Reopen the files of the last nvim session in this project |
 | `Ctrl+h/j/k/l` | Move between nvim, shell and opencode (nvim reloads files the agent changed) |
 | `prefix a` · `prefix z` | opencode full screen and back · any pane full screen and back |
 | `Space ao` (nvim) | Send the file / selected lines to opencode (`@file lines a-b`) and go to it |

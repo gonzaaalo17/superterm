@@ -84,9 +84,10 @@ screen and back, `prefix H/J/K/L` resizes.
   agent's work included; `dev` there brings it back as it was. `dev -k` closes it (the current
   one inside a workspace). Open sessions cost RAM (nvim, its LSPs, opencode), almost no CPU; the
   GPU model is Ollama's, unloaded after a few idle minutes whatever is open.
-- **After a reboot** tmux-continuum rebuilds them: panes in their folders and sizes, nvim with its files,
-  opencode on its last conversation (it keeps them on disk). Unsaved changes and running servers
-  are gone.
+- **Closing is for good:** `dev -k`, `tmux kill-server` or a reboot end the session, and nothing
+  brings it back on its own (tmux sessions are not saved or restored). `dev` starts it again:
+  opencode resumes the project's last conversation (it keeps them on disk) and `Space qs` in nvim
+  reopens the files you had. Unsaved changes and running servers are gone.
 - **The agent full screen:** `prefix a` goes to opencode and zooms it; `prefix a` again brings the
   layout back and returns to the pane you were in. Outside a workspace it opens opencode on the
   right of the window. Going back to nvim reloads the files the agent changed (focus events).
