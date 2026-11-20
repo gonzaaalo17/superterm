@@ -228,6 +228,7 @@ install_links() {
     link home/.bashrc               "$HOME/.bashrc"
     link home/.bash_aliases         "$HOME/.bash_aliases"
     link home/.bash_functs          "$HOME/.bash_functs"
+    link home/.blerc                "$HOME/.blerc"
     link home/.bashrc.d/10-env.sh   "$HOME/.bashrc.d/10-env.sh"
     link home/.bashrc.d/20-tools.sh "$HOME/.bashrc.d/20-tools.sh"
     link bin/ai                     "$BIN/ai"

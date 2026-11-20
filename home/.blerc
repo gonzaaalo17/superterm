@@ -1,0 +1,7 @@
+# ~/.blerc — ble.sh settings (read by ble.sh when it loads; see ~/.bashrc)
+
+# Visible bell (the notice top-right for an unbound key, Ctrl+G, a Tab with no match…):
+# by default ble.sh erases it by painting the cells light grey (bg=252), which stays on
+# screen as a white box over Ghostty's transparent background. Erase with the terminal's
+# own background instead; the notice itself is unchanged.
+ble-face vbell_erase=none

@@ -246,7 +246,7 @@ root without reading it, or hand-added `PATH` lines in `.bashrc`.
 
 | Path | Goes to |
 |---|---|
-| `home/.bashrc`, `.bash_aliases`, `.bash_functs` | `~/` |
+| `home/.bashrc`, `.bash_aliases`, `.bash_functs`, `.blerc` (ble.sh) | `~/` |
 | `home/.bashrc.d/10-env.sh`, `20-tools.sh` | `~/.bashrc.d/` (environment, tool init) |
 | `bin/ai`, `bin/update-all`, `bin/dev`, `bin/nvim-context` | `~/.local/bin/` |
 | `config/systemd/user/update-all.*` | `~/.config/systemd/user/` (weekly user updates) |
