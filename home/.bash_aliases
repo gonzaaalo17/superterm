@@ -40,6 +40,8 @@ alias lg='lazygit'
 alias lzd='lazydocker'
 alias lazysql='lazysql -no-telemetry'   # official builds send anonymous usage counts by default
 alias lsql='lazysql -no-telemetry'
+# lazyjournal reads a config.yml in the directory it starts in: run it from its own, never a project's
+alias lj='(cd ~/.config/lazyjournal 2>/dev/null || cd ~; lazyjournal)'
 alias v='nvim'
 alias t='tmux new-session -A -s main'    # enter (or return to) the main session
 

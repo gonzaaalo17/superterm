@@ -80,6 +80,7 @@
 | `prefix y` | Popup: yazi |
 | `prefix D` | Popup: lazydocker |
 | `prefix b` | Popup: btop |
+| `prefix j` | Popup: lazyjournal (logs) |
 | `prefix t` | Popup: floating shell |
 | `prefix u` | Open a URL from the screen (fzf) |
 | `prefix [` | Copy mode (`v` select, `y` copy, `q` quit) |
@@ -196,6 +197,7 @@ every `*DATABASE_URL` / `*DB_URL` in `.env` / `.env.local`.
 | `extract file` | Unpack any archive format |
 | `mvall` / `cpall` / `rmgroup` | Your existing functions |
 | `lg` / `lzd` / `lsql` | lazygit / lazydocker / lazysql (telemetry off) |
+| `lj` | lazyjournal: logs of services (system and user), kernel, /var/log, containers |
 | `top` | btop |
 | `dust [dir]` | Disk usage as a visual tree (`dust -d 2`, `dust -n 20`); `du` is still plain du |
 | `duf` | Free space per disk, as a table; `df` is still plain df |
@@ -276,6 +278,7 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 |---|---|
 | `docker` · `lazydocker` (`lzd`) | Containers / their TUI |
 | `lazysql` (`lsql`) | Databases TUI (Postgres, MySQL, SQLite, SQL Server) |
+| `lazyjournal` (`lj`) | Logs TUI: journald units (system / user), kernel, /var/log files, Docker/Podman containers |
 | `podman` | Rootless Docker alternative |
 | `toolbox` | Throwaway Fedora containers to try things |
 
@@ -307,4 +310,5 @@ One line each so you remember they exist. Details: `tldr NAME` · `NAME --help` 
 - **yazi** (Markdown files are previewed rendered): `Enter` / `l` go into a folder or open a file · `h/j/k` move · `space` select · `y`/`x`/`p` copy/cut/paste · `a` create · `r` rename · `d` trash · `/` search · `z` jump with zoxide · `q` quit
 - **lazydocker**: `[`/`]` tabs · `l` logs · `s` stop · `r` restart · `d` remove
 - **lazysql**: `Enter` connect · `H`/`L` tree / table · `Ctrl+E` SQL editor · `Backspace` back to connections · `?` help · `q` quit
+- **lazyjournal**: `Tab` next panel · `j`/`k` move · `Enter` open a log · `/` filter (`Ctrl+K` filter mode: default / fuzzy / regex) · `Ctrl+P` priority · `Ctrl+D` Docker / Podman · `Ctrl+T` timestamps · `F1` help · `Ctrl+C` quit
 - **btop**: `h/j/k/l` move · `f` filter · `k` kill process · `m` menu

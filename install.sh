@@ -185,6 +185,17 @@ install_binaries() {
         ok "lazysql $(jq -r .tag_name <<<"$json")"
     else ok "lazysql already installed"; fi
 
+    # lazyjournal: logs TUI (journald, /var/log, containers). Local only: no network code of its
+    # own; it runs ssh only when asked (--ssh). The asset is the bare binary.
+    if [ $UPDATE = 1 ] || ! command -v lazyjournal >/dev/null; then
+        json=$(gh_release Lifailon/lazyjournal); v=$(jq -r .tag_name <<<"$json"); v=${v#v}
+        fetch_verified "$json" "lazyjournal-${v}-linux-amd64" "$tmp/lazyjournal"
+        install -m755 "$tmp/lazyjournal" "$BIN/lazyjournal"
+        ok "lazyjournal $v"
+    else ok "lazyjournal already installed"; fi
+    # It reads config.yml from the directory it starts in: lj and prefix j start it in its own.
+    mkdir -p "$HOME/.config/lazyjournal"
+
     if [ $UPDATE = 1 ] || ! command -v yazi >/dev/null; then
         json=$(gh_release sxyazi/yazi)
         fetch_verified "$json" yazi-x86_64-unknown-linux-musl.zip "$tmp/yazi.zip"

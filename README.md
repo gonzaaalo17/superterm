@@ -8,7 +8,7 @@
 ```
 
 **superterm** — my terminal setup on Fedora: **Ghostty** + **bash** (ble.sh, starship, atuin, fzf, zoxide,
-thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, lazysql, yazi, btop and a local-LLM `ai` command — all in
+thefuck) + **tmux** + **Neovim** (as a full IDE, on LazyVim), with lazygit, lazydocker, lazysql, lazyjournal, yazi, btop and a local-LLM `ai` command — all in
 Catppuccin, following GNOME's light/dark mode.
 
 ## New machine
@@ -26,7 +26,7 @@ Then fully restart Ghostty (`Ctrl+Shift+Q`) and open a new terminal. `cheat` lis
 
 1. **Packages** — Ghostty (COPR `scottames/ghostty`) and everything in `packages.txt`, with dnf,
    plus the weekly system update timer (see *Updates*).
-2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, lazysql, yazi
+2. **Binaries** not packaged in Fedora, into `~/.local/bin`: starship, lazygit, lazydocker, lazysql, lazyjournal, yazi
    and ble.sh — latest GitHub releases, each verified against its published sha256.
 3. **Links** — every config in this repo is symlinked into place. Anything already there is moved
    to `~/.dotfiles-backup/<timestamp>/` first. `~/.gitconfig` only gets an `[include]` of
