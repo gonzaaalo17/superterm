@@ -15,15 +15,18 @@
 #   └──────────────┴──────────┘
 #
 # Leaving it (closing Ghostty, prefix d) keeps everything running; `dev` there brings it back.
-# tmux-continuum rebuilds the sessions after a reboot.
+# Closing it (dev -k, tmux kill-server, a reboot) is for good: sessions are not saved or restored.
+# `dev` then starts it again; opencode resumes the conversation, Space qs in nvim reopens files.
 #
 # Used by tmux and nvim, not meant to be typed:
 #   dev --zoom SESSION   the agent full screen / back to the layout (prefix a)
 #   dev --send TEXT      type TEXT into the agent's prompt and go to it (nvim: Space ao)
+#   dev --start SESSION  start nvim and opencode in a new workspace, once a terminal shows it
 set -euo pipefail
 
 AGENT_WIDTH=40%   # of the window
 SHELL_HEIGHT=25%  # of the nvim column
+SELF=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
 die() { echo "dev: $*" >&2; exit 1; }
 
 project_root() { # [dir] -> absolute project root
@@ -42,51 +45,70 @@ pick_project() { # -> a folder of ~/Projects, or exit
     echo "$HOME/Projects/$p"
 }
 
-session_root() { # session -> its project root. @dev_root, or the session's start directory:
-    # tmux-resurrect restores sessions without their options, but in their directory.
-    local r
-    r=$(tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true)
-    [ -n "$r" ] || r=$(tmux display-message -p -t "=$1:" '#{session_path}' 2>/dev/null || true)
-    echo "$r"
+session_root() { # session -> the project root dev opened it on, or nothing if dev didn't
+    tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true
 }
 
-is_workspace() { # session -> true if dev made it (also after a restore: a "code" window)
-    [ -n "$(tmux show-options -qv -t "=$1:" @dev_root 2>/dev/null || true)" ] && return 0
-    tmux list-windows -t "=$1" -F '#W' 2>/dev/null | grep -qx code
+is_workspace() { # session -> true if dev made it
+    [ -n "$(session_root "$1")" ]
 }
 
 session_for() { # root -> session name: the folder's, or parent-folder if that one is taken
     local root=$1 name
-    name=$(basename "$root" | tr '.:' '__')
+    name=$(basename "$root" | tr -c '[:alnum:]_\n-' '_')   # no . : (tmux targets), spaces, quotes
     if tmux has-session -t "=$name" 2>/dev/null && [ "$(session_root "$name")" != "$root" ]; then
-        name="$(basename "$(dirname "$root")" | tr '.:' '__')-$name"
+        name="$(basename "$(dirname "$root")" | tr -c '[:alnum:]_\n-' '_')-$name"
     fi
     echo "$name"
 }
 
-go() { # session: switch to it from inside tmux, attach to it from outside
-    if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$1"; else exec tmux attach-session -t "=$1"; fi
+go() { # session [new]: switch to it from inside tmux, attach to it from outside. A new one gets
+    # its programs started once a terminal shows it: started before, nvim's queries to the terminal
+    # (DECRQM, DA1) go out through tmux and their answers come back typed into nvim as keys.
+    local s=$1 new=${2:-}
+    if [ -n "${TMUX:-}" ]; then
+        tmux switch-client -t "=$s"
+        [ -z "$new" ] || start "$s"
+    else
+        [ -z "$new" ] || tmux set-hook -t "=$s:" client-attached \
+            "set-hook -u -t '=$s:' client-attached ; run-shell -b \"'$SELF' --start '$s'\""
+        exec tmux attach-session -t "=$s"
+    fi
 }
 
-find_agent() { # session -> the agent's pane id, or nothing. The pane dev tagged, or else (after a
-    # restore, which drops pane options) the pane running opencode.
-    local id role cmd tagged="" running=""
-    while read -r id role cmd; do
-        [ "$role" = agent ] && [ -z "$tagged" ] && tagged=$id
-        [ "$cmd" = opencode ] && [ -z "$running" ] && running=$id
-    done < <(tmux list-panes -s -t "=$1" -F '#{pane_id} #{?@dev_role,#{@dev_role},-} #{pane_current_command}' 2>/dev/null)
-    echo "${tagged:-$running}"
+opencode_cmd() { # root -> how to start opencode there: --continue only if there is a conversation
+    # (opencode 1.19 shows "Unexpected server error" on --continue in a project without one)
+    if (cd "$1" && timeout 5 opencode session list -n 1 --format json </dev/null 2>/dev/null) | grep -q '"id"'; then
+        echo 'opencode --continue'
+    else
+        echo 'opencode'
+    fi
+}
+
+find_role() { # session role -> the id of the pane dev tagged with that role, or nothing
+    tmux list-panes -s -t "=$1" -F '#{pane_id} #{@dev_role}' 2>/dev/null \
+        | awk -v r="$2" '$2 == r { print $1; exit }'
+}
+
+find_agent() { find_role "$1" agent; }   # session -> the agent's pane id, or nothing
+
+no_passthrough() { # pane: opencode sends its terminal queries through tmux's passthrough
+    # (allow-passthrough is on for yazi's images); the answers came back typed into whatever
+    # pane was active, nvim's dashboard included. Without it in opencode's pane tmux answers them.
+    tmux set-option -p -t "$1" allow-passthrough off
 }
 
 agent_pane() { # session -> the agent's pane id, opening it on the right if missing
     local s=$1 pane root target
     pane=$(find_agent "$s")
     if [ -z "$pane" ]; then
-        root=$(session_root "$s")
+        root=$(session_root "$s")   # outside a workspace: where you are
+        [ -n "$root" ] || root=$(tmux display-message -p -t "=$s:" '#{pane_current_path}')
         target="=$s:code"
         tmux list-windows -t "=$s" -F '#W' | grep -qx code || target="=$s:"
         pane=$(tmux split-window -d -h -f -l "$AGENT_WIDTH" -t "$target" -c "$root" -P -F '#{pane_id}')
-        tmux send-keys -t "$pane" 'opencode --continue' Enter
+        no_passthrough "$pane"
+        tmux send-keys -t "$pane" "$(opencode_cmd "$root")" Enter   # the session is on screen
     fi
     tmux set-option -p -t "$pane" @dev_role agent
     echo "$pane"
@@ -107,14 +129,20 @@ create() { # root name
     [ -n "$w" ] && [ -n "$h" ] && size=(-x "$w" -y "$h")
     code=$(tmux new-session -d -P -F '#{pane_id}' -s "$name" -c "$root" -n code "${size[@]}")
     tmux set-option -t "=$name:" @dev_root "$root"
-    # Typed into a shell, not run as the pane's command: quitting nvim or opencode leaves the
-    # pane with a shell, and continuum restores them as programs of that shell.
-    tmux send-keys -t "$code" 'nvim' Enter
+    tmux set-option -p -t "$code" @dev_role code
     agent=$(tmux split-window -d -h -f -l "$AGENT_WIDTH" -t "$code" -c "$root" -P -F '#{pane_id}')
     tmux set-option -p -t "$agent" @dev_role agent
-    tmux send-keys -t "$agent" 'opencode --continue' Enter
+    no_passthrough "$agent"
     tmux split-window -d -v -l "$SHELL_HEIGHT" -t "$code" -c "$root"
     tmux select-pane -t "$code"
+}
+
+start() { # session: start nvim and opencode in a new workspace (see go). Typed into the panes'
+    # shells, not run as their commands: quitting nvim or opencode leaves a shell, not a gap.
+    local s=$1 code agent
+    code=$(find_role "$s" code); agent=$(find_role "$s" agent)
+    [ -z "$code" ] || tmux send-keys -t "$code" 'nvim' Enter
+    [ -z "$agent" ] || tmux send-keys -t "$agent" "$(opencode_cmd "$(session_root "$s")")" Enter
 }
 
 zoom() { # session the key was pressed in: the agent full screen, or back to the layout
@@ -153,6 +181,7 @@ case "${1:-}" in
     -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     --zoom) zoom "${2:?usage: dev --zoom SESSION}"; exit 0 ;;
     --send) send "${2:?usage: dev --send TEXT}"; exit 0 ;;
+    --start) start "${2:?usage: dev --start SESSION}"; exit 0 ;;
     -k)
         if [ -z "${2:-}" ] && [ -n "${TMUX:-}" ]; then
             name=$(tmux display-message -p '#{session_name}')
@@ -177,8 +206,8 @@ root=$(project_root "$dir")
 [ "$root" != "$(cd "$HOME" && pwd -P)" ] || die "~ is not a project: run dev in a project's folder"
 name=$(session_for "$root")
 if tmux has-session -t "=$name" 2>/dev/null; then
-    tmux set-option -t "=$name:" @dev_root "$root"   # again after a restore, which drops it
+    go "$name"
 else
     create "$root" "$name"
+    go "$name" new
 fi
-go "$name"
